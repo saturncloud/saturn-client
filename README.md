@@ -15,13 +15,26 @@ conn = SaturnConnection()
 
 ## Create a Project
 
+The minimal acceptable input is the name of the project:
+
+```python
+project = conn.create_project(name="my-project")
+```
+
+But all the other settings that are available in the UI can also be passed in:
+
 ```python
 project = conn.create_project(
-    name,
-    description,
-    image_uri,
-    start_script,
-    environment_variables,
-    working_dir,
+    name="my-project"
+    description="My new project - created from ,
+    image_uri="saturncloud/saturn-gpu:2020.11.30",
+    start_script="pip install git+https://github.com/saturncloud/dask-saturn.git@main",
+    environment_variables={"DATA_URL": "s3://my-bucket/data"},
+    working_dir="/home/jovyan/project",
+    workspace_settings={
+        "size": "large",
+        "auto_shutoff": "Never",
+        "start_ssh": True,
+    }
 )
 ```
