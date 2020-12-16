@@ -47,25 +47,23 @@ class SaturnConnection:
 
     @property
     def saturn_api_version(self):
-        if self._saturn_api_version:
-            return self._saturn_api_version
-        else:
+        if self._saturn_api_version is None:
             url = urljoin(self.url, "api/status")
             response = requests.get(url, headers=self.settings.headers)
             if not response.ok:
                 raise ValueError(response.reason)
             self._saturn_api_version = response.json()["version"]
+        return self._saturn_api_version
 
     @property
     def options(self):
-        if self._options:
-            return self._options
-        else:
+        if self._options is None:
             url = urljoin(self.url, "api/info/servers")
             response = requests.get(url, headers=self.settings.headers)
             if not response.ok:
                 raise ValueError(response.reason)
             self._options = response.json()
+        return self._options
 
     @property
     def describe_sizes(self) -> Dict[str, str]:
@@ -115,12 +113,12 @@ class SaturnConnection:
                             errors.append(f"{k} must be set to a boolean if defined.")
                     else:
                         options = self.options.get(k) or self.options.get(f"{k}s")
-                        raise errors.append(
+                        errors.append(
                             f"Proposed {k}: {v} is not a valid option. Options are {options}."
                         )
                     workspace_kwargs[f"jupyter_{k}"] = v
                 else:
-                    raise errors.append(
+                    errors.append(
                         f"{k} is not a valid workspace_setting. "
                         "Supported workspace_settings are {workspace_keys}."
                     )
