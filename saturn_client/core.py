@@ -133,9 +133,10 @@ class SaturnConnection:
                             errors.append(f"{k} must be set to a boolean if defined.")
                     else:
                         options = self.options["sizes"].keys() if k == "size" else self.options[k]
-                        errors.append(
-                            f"Proposed {k}: {v} is not a valid option. Options are {options}."
-                        )
+                        if v not in options:
+                            errors.append(
+                                f"Proposed {k}: {v} is not a valid option. Options are: {options}."
+                            )
                     workspace_kwargs[f"jupyter_{k}"] = v
                 else:
                     errors.append(
