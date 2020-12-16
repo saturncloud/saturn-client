@@ -115,7 +115,7 @@ class SaturnConnection:
                         if not isinstance(v, bool):
                             errors.append(f"{k} must be set to a boolean if defined.")
                     else:
-                        options = self.options.get(k) or self.options.get(f"{k}s")
+                        options = self.options["sizes"].keys() if k == "size" else self.options[k]
                         errors.append(
                             f"Proposed {k}: {v} is not a valid option. Options are {options}."
                         )
