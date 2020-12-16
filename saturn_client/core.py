@@ -1,3 +1,9 @@
+"""Python library for interacting with the Saturn Cloud API.
+
+NOTE: This is an experimental library and will likely change in
+the future
+"""
+
 import json
 import logging
 
@@ -35,10 +41,16 @@ class SaturnConnection:
     _options = None
     _saturn_api_version = None
 
-    # pylint: disable=unused-argument,super-init-not-called
     def __init__(
         self, url: Optional[str] = None, api_token: Optional[str] = None,
     ):
+        """
+        Create a ``SaturnConnection`` to interact with the API.
+
+        :param url: URL for the SaturnCloud instance.
+        :param api_token: API token for authenticating the request to Saturn API.
+            Get from `/api/user/token`
+        """
         self.settings = Settings(url, api_token)
 
         # test connection to raise errors early
@@ -46,10 +58,12 @@ class SaturnConnection:
 
     @property
     def url(self):
+        """URL of Saturn instance"""
         return self.settings.url
 
     @property
     def saturn_api_version(self):
+        """Version of Saturn API"""
         if self._saturn_api_version is None:
             url = urljoin(self.url, "api/status")
             response = requests.get(url, headers=self.settings.headers)
@@ -60,6 +74,7 @@ class SaturnConnection:
 
     @property
     def options(self):
+        """Options for various settings"""
         if self._options is None:
             url = urljoin(self.url, "api/info/servers")
             response = requests.get(url, headers=self.settings.headers)
@@ -70,7 +85,7 @@ class SaturnConnection:
 
     @property
     def describe_sizes(self) -> Dict[str, str]:
-        """Returns available instance sizes"""
+        """Instance size options"""
         return self.options["sizes"]
 
     def create_project(
@@ -90,7 +105,7 @@ class SaturnConnection:
         :param description: Short description of the project (less than 250 characters).
         :param image_uri: Location of the image. Example:
             485185227295.dkr.ecr.us-east-1.amazonaws.com/saturn-dask:2020.12.01.21.10
-        :param start_script: Script that runs on start up.
+        :param start_script: Script that runs on start up. Examples: "pip install dask"
         :param environment_variables: Env vars expressed as a dict. The names will be
             coerced to uppercase.
         :param working_dir: Location to use as working directory. Example: /home/jovyan/project
@@ -135,6 +150,7 @@ class SaturnConnection:
             "image": image_uri,
             "start_script": start_script,
             "environment_variables": environment_variables,
+            "working_dir": working_dir,
             **workspace_kwargs,
         }
         # only send kwargs that are explicitly set by user

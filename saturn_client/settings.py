@@ -41,6 +41,7 @@ class Settings:
 
     @property
     def url(self):
+        """Saturn url"""
         return self.BASE_URL
 
     @property
