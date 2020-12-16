@@ -1,11 +1,11 @@
-name: Publish dask-saturn to PyPI
+name: Publish saturn-client to PyPI
 on:
   push:
     tags:
       - '*'
 jobs:
   build-and-publish:
-    name: Build and publish dask-saturn to PyPI
+    name: Build and publish saturn-client to PyPI
     runs-on: ubuntu-18.04
 
     steps:

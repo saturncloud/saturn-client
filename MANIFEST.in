@@ -1,8 +1,8 @@
-recursive-include dask_saturn *.py
-recursive-include dask_saturn *.yaml
+recursive-include saturn_client *.py
+recursive-include saturn_client *.yaml
 
 include versioneer.py
 include setup.py
 include README.md
 include LICENSE
-include dask_saturn/_version.py
+include saturn_client/_version.py

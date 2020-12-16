@@ -3,11 +3,11 @@ from setuptools import setup, find_packages
 
 import versioneer
 
-install_requires = ["distributed", "requests"]
+install_requires = ["requests"]
 
 
 setup(
-    name="dask-saturn",
+    name="saturn-client",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     maintainer="Saturn Cloud Developers",
@@ -24,18 +24,18 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
-    keywords="dask saturn cloud distributed cluster",
-    description="Dask Cluster objects in Saturn Cloud",
+    keywords="saturn cloud client api",
+    description="Python library for interacting with Saturn Cloud API",
     long_description=(open("README.md").read() if os.path.exists("README.md") else ""),
     long_description_content_type="text/markdown",
     url="https://saturncloud.io/",
     project_urls={
         "Documentation": "http://docs.saturncloud.io",
-        "Source": "https://github.com/saturncloud/dask-saturn",
-        "Issue Tracker": "https://github.com/saturncloud/dask-saturn/issues",
+        "Source": "https://github.com/saturncloud/saturn-client",
+        "Issue Tracker": "https://github.com/saturncloud/saturn-client/issues",
     },
     packages=find_packages(),
-    package_data={"dask_saturn": ["*.yaml"]},
+    package_data={"saturn_client": ["*.yaml"]},
     install_requires=install_requires,
     tests_require=["pytest"],
     zip_safe=False,
