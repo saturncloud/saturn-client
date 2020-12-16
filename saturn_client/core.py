@@ -41,6 +41,9 @@ class SaturnConnection:
     ):
         self.settings = Settings(url, api_token)
 
+        # test connection to raise errors early
+        self._saturn_api_version = self.saturn_api_version
+
     @property
     def url(self):
         return self.settings.url
