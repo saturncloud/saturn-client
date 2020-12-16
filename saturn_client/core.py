@@ -1,9 +1,8 @@
-import os
 import json
 import logging
 
 from sys import stdout
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urljoin
 
 import requests
@@ -25,7 +24,7 @@ handler.setFormatter(logging.Formatter(logfmt, datefmt))
 log.addHandler(handler)
 
 
-class SaturnConnection():
+class SaturnConnection:
     """
     Create a ``SaturnConnection`` to interact with the API.
 
@@ -33,14 +32,13 @@ class SaturnConnection():
     :param api_token: API token for authenticating the request to Saturn API.
         Get from `/api/user/token`
     """
+
     _options = None
     _saturn_api_version = None
 
     # pylint: disable=unused-argument,super-init-not-called
     def __init__(
-        self,
-        url: Optional[str]=None,
-        api_token: Optional[str]=None,
+        self, url: Optional[str] = None, api_token: Optional[str] = None,
     ):
         self.settings = Settings(url, api_token)
 
@@ -84,29 +82,30 @@ class SaturnConnection():
         environment_variables: Optional[Dict] = None,
         working_dir: Optional[str] = None,
         workspace_settings: Optional[Dict] = None,
-    ):
+    ) -> Dict[str, Any]:
         """
         Create a project from scratch
 
         :param name: Name of project.
         :param description: Short description of the project (less than 250 characters).
-        :param image_uri: Location of the image. Example: 485185227295.dkr.ecr.us-east-1.amazonaws.com/saturn-dask:2020.12.01.21.10
+        :param image_uri: Location of the image. Example:
+            485185227295.dkr.ecr.us-east-1.amazonaws.com/saturn-dask:2020.12.01.21.10
         :param start_script: Script that runs on start up.
-        :param environment_variables: Env vars expressed as a dict. The names will be coerced to uppercase.
+        :param environment_variables: Env vars expressed as a dict. The names will be
+            coerced to uppercase.
         :param working_dir: Location to use as working directory. Example: /home/jovyan/project
-        :param workspace_settings: Setting for the jupyter associated with the project. These include:
-            `size`, `disk_space`, `auto_shutoff`, and `start_ssh`. The options for these are available from
-            `conn.options`.
+        :param workspace_settings: Setting for the jupyter associated with the project.
+            These include: `size`, `disk_space`, `auto_shutoff`, and `start_ssh`. The options
+            for these are available from `conn.options`.
         """
         url = urljoin(self.url, "api/projects")
 
-        errors = [
-            *validate_name(name),
-            *validate_description(description)
-        ]
+        errors = [*validate_name(name), *validate_description(description)]
 
         if environment_variables:
-            environment_variables = "\n".join(f"{k.upper()}={v}" for k, v in environment_variables.items())
+            environment_variables = "\n".join(
+                f"{k.upper()}={v}" for k, v in environment_variables.items()
+            )
 
         workspace_kwargs = {}
         if workspace_settings:
@@ -118,10 +117,15 @@ class SaturnConnection():
                             errors.append(f"{k} must be set to a boolean if defined.")
                     elif v not in self.options[k]:
                         options = self.options.get(k) or self.options.get(f"{k}s")
-                        raise errors.append(f"Proposed {k}: {v} is not a valid option. Options are {options}.")
+                        raise errors.append(
+                            f"Proposed {k}: {v} is not a valid option. Options are {options}."
+                        )
                     workspace_kwargs[f"jupyter_{k}"] = v
                 else:
-                    raise errors.append(f"{k} is not a valid workspace_setting. Supported workspace_settings are {workspace_keys}.")
+                    raise errors.append(
+                        f"{k} is not a valid workspace_setting. "
+                        "Supported workspace_settings are {workspace_keys}."
+                    )
 
         if len(errors) > 0:
             raise ValueError(errors)
@@ -137,7 +141,11 @@ class SaturnConnection():
         # only send kwargs that are explicitly set by user
         project_config = {k: v for k, v in project_config.items() if v is not None}
 
-        response = requests.post(url, data=json.dumps({**project_config, "saturn_client_version": _version__}), headers=self.settings.headers)
+        response = requests.post(
+            url,
+            data=json.dumps({**project_config, "saturn_client_version": __version__}),
+            headers=self.settings.headers,
+        )
         if not response.ok:
             raise ValueError(response.reason)
         return response.json()

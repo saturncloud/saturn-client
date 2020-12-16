@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List, Optional
+from typing import List
 
 
 def validate_name(name, required=False):
@@ -10,11 +10,14 @@ def validate_name(name, required=False):
     elif name is None:
         pass
     elif not re.match(name_re, name.lower().replace("_", "-")):
-        errors.append("Invalid project name. Name must have no spaces and only contain letters and numbers.")
+        errors.append(
+            "Invalid project name. Name must have no spaces and only contain letters and numbers."
+        )
     return errors
 
+
 def validate_description(description):
-    errors:  List[str] = []
-    elif len(description) > 255:
+    errors: List[str] = []
+    if len(description) > 255:
         errors.append("Description is too long. It must be less than 255 characters.")
     return errors
