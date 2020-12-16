@@ -18,6 +18,8 @@ def validate_name(name, required=False):
 
 def validate_description(description):
     errors: List[str] = []
-    if len(description) > 255:
+    if description is None:
+        pass
+    elif len(description) > 255:
         errors.append("Description is too long. It must be less than 255 characters.")
     return errors
