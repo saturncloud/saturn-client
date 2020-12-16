@@ -115,7 +115,7 @@ class SaturnConnection:
                     if k == "start_ssh":
                         if not isinstance(v, bool):
                             errors.append(f"{k} must be set to a boolean if defined.")
-                    elif v not in self.options[k]:
+                    else:
                         options = self.options.get(k) or self.options.get(f"{k}s")
                         raise errors.append(
                             f"Proposed {k}: {v} is not a valid option. Options are {options}."
