@@ -15,7 +15,9 @@ class Settings:
     BASE_URL: str
 
     def __init__(
-        self, base_url: Optional[str] = None, saturn_token: Optional[str] = None,
+        self,
+        base_url: Optional[str] = None,
+        saturn_token: Optional[str] = None,
     ):
         if base_url:
             self.BASE_URL = base_url

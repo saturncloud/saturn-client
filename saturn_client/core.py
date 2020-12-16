@@ -42,7 +42,9 @@ class SaturnConnection:
     _saturn_api_version = None
 
     def __init__(
-        self, url: Optional[str] = None, api_token: Optional[str] = None,
+        self,
+        url: Optional[str] = None,
+        api_token: Optional[str] = None,
     ):
         """
         Create a ``SaturnConnection`` to interact with the API.
