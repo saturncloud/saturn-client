@@ -118,10 +118,10 @@ class SaturnConnection():
                             errors.append(f"{k} must be set to a boolean if defined.")
                     elif v not in self.options[k]:
                         options = self.options.get(k) or self.options.get(f"{k}s")
-                        raise errors.append(f"Proposed {k}: {v} is not a valid option. Options are {options}")
+                        raise errors.append(f"Proposed {k}: {v} is not a valid option. Options are {options}.")
                     workspace_kwargs[f"jupyter_{k}"] = v
                 else:
-                    raise errors.append(f"{k} is not a valid workspace_setting. Supported workspace_settings are {workspace_keys}")
+                    raise errors.append(f"{k} is not a valid workspace_setting. Supported workspace_settings are {workspace_keys}.")
 
         if len(errors) > 0:
             raise ValueError(errors)
