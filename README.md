@@ -26,7 +26,7 @@ But all the other settings that are available in the UI can also be passed in:
 ```python
 project = conn.create_project(
     name="my-project"
-    description="My new project - created from ,
+    description="My new project - created from outside of Saturn programatically!",
     image_uri="saturncloud/saturn-gpu:2020.11.30",
     start_script="pip install git+https://github.com/saturncloud/dask-saturn.git@main",
     environment_variables={"DATA_URL": "s3://my-bucket/data"},
