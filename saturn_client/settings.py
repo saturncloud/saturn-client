@@ -13,25 +13,17 @@ class Settings:
 
     SATURN_TOKEN: str
     BASE_URL: str
-    is_external: bool
 
     def __init__(
-        self,
-        base_url: Optional[str] = None,
-        saturn_token: Optional[str] = None,
-        is_external: bool = False,
+        self, base_url: Optional[str] = None, saturn_token: Optional[str] = None,
     ):
-        self.is_external = is_external
         if base_url:
             self.BASE_URL = base_url
         else:
             try:
                 self.BASE_URL = os.environ["BASE_URL"]
             except KeyError as err:
-                if self.is_external:
-                    err_msg = "Missing required value base_url."
-                else:
-                    err_msg = "Required environment variable BASE_URL not set."
+                err_msg = "Missing required value Saturn url."
                 raise RuntimeError(err_msg) from err
 
         parsed = urlparse(self.BASE_URL)
@@ -44,10 +36,7 @@ class Settings:
             try:
                 self.SATURN_TOKEN = os.environ["SATURN_TOKEN"]
             except KeyError as err:
-                if self.is_external:
-                    err_msg = "Missing required value saturn_token."
-                else:
-                    err_msg = "Required environment variable SATURN_TOKEN not set."
+                err_msg = "Missing required value Saturn api token."
                 raise RuntimeError(err_msg) from err
 
     @property

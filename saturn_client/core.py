@@ -7,7 +7,6 @@ from urllib.parse import urljoin
 
 import requests
 from .settings import Settings
-from .validators import validate_name, validate_description
 from ._version import get_versions
 
 __version__ = get_versions()["version"]
@@ -100,8 +99,7 @@ class SaturnConnection:
         """
         url = urljoin(self.url, "api/projects")
 
-        errors = [*validate_name(name), *validate_description(description)]
-
+        errors = []
         if environment_variables:
             environment_variables = "\n".join(
                 f"{k.upper()}={v}" for k, v in environment_variables.items()
@@ -147,5 +145,5 @@ class SaturnConnection:
             headers=self.settings.headers,
         )
         if not response.ok:
-            raise ValueError(response.reason)
+            raise ValueError(response.json()["message"])
         return response.json()
