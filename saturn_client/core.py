@@ -73,6 +73,30 @@ class SaturnConnection:
             self._options = response.json()
         return self._options
 
+    def get_project(self, name=None, id=None):
+        if id is None and name is None:
+            raise KeyError("You must provide name or id.")
+        if id:
+            url = urljoin(self.url, "api/projects", id)
+            response = requests.get(url)
+            if not response.ok:
+                raise ValueError(response.json()["message"])
+            return response.json()
+        url = urljoin(self.url, "api/projects?details=True")
+        response = requests.get(url)
+        if not response.ok:
+            raise ValueError(response.json()["message"])
+        projects = response.json()
+        projects = [p for p in projects if name in [p["name"], p["display_name"]]]
+        if len(projects) > 1:
+            raise ValueError(
+                f"You have access to multiple projects with the name: {name}. "
+                f"Please get by id instead: {projects}"
+            )
+        elif len(projects) < 1:
+            raise ValueError(f"No projects match that name: {name}")
+        return projects[0]
+
     def create_project(
         self,
         name: str,
