@@ -1,7 +1,6 @@
 .PHONY: conda-update
 conda-update:
-	envsubst < environment.yaml > /tmp/environment.yaml
-	conda env update -n saturn-client --file /tmp/environment.yaml
+	conda env update -n saturn-client --file environment.yaml
 
 .PHONY: format
 format:
