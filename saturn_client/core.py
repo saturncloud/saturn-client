@@ -74,13 +74,15 @@ class SaturnConnection:
         return self._options
 
     def get_project(self, project_id: str) -> Dict[str, Any]:
+        """Get project by id"""
         url = urljoin(self.url, f"api/projects/{project_id}")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
             raise ValueError(response.json()["message"])
         return response.json()
 
-    def delete_project(self, project_id: str) -> Dict[str, Any]:
+    def delete_project(self, project_id: str) -> str:
+        """Delete project by id"""
         url = urljoin(self.url, f"api/projects/{project_id}")
         response = requests.delete(url, headers=self.settings.headers)
         if not response.ok:
