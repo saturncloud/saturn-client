@@ -13,9 +13,6 @@ from urllib.parse import urljoin
 
 import requests
 from .settings import Settings
-from ._version import get_versions
-
-__version__ = get_versions()["version"]
 
 
 log = logging.getLogger("saturn-client")
@@ -155,7 +152,7 @@ class SaturnConnection:
 
         response = requests.post(
             url,
-            data=json.dumps({**project_config, "saturn_client_version": __version__}),
+            data=json.dumps(project_config),
             headers=self.settings.headers,
         )
         if not response.ok:

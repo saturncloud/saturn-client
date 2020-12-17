@@ -7,6 +7,10 @@ import os
 from typing import Optional
 from urllib.parse import urlparse
 
+from ._version import get_versions
+
+__version__ = get_versions()["version"]
+
 
 class Settings:
     """Global settings"""
@@ -49,4 +53,4 @@ class Settings:
     @property
     def headers(self):
         """Saturn auth headers"""
-        return {"Authorization": f"token {self.SATURN_TOKEN}"}
+        return {"Authorization": f"token {self.SATURN_TOKEN}", "X-Saturn-Client-Version": __version__}
