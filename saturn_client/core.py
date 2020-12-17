@@ -87,7 +87,7 @@ class SaturnConnection:
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
             raise ValueError(response.json()["message"])
-        projects = response.json()
+        projects = response.json()["projects"]
         projects = [p for p in projects if name in [p["name"], p["display_name"]]]
         if len(projects) > 1:
             raise ValueError(
