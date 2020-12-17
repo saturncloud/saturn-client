@@ -73,30 +73,19 @@ class SaturnConnection:
             self._options = response.json()
         return self._options
 
-    def get_project(self, name=None, id=None):
-        if id is None and name is None:
-            raise KeyError("You must provide name or id.")
-        if id:
-            url = urljoin(self.url, "api/projects", id)
-            response = requests.get(url, headers=self.settings.headers)
-            if not response.ok:
-                raise ValueError(response.json()["message"])
-            return response.json()
-
-        url = urljoin(self.url, "api/projects?details=true")
+    def get_project(self, project_id: str) -> Dict[str, Any]:
+        url = urljoin(self.url, f"api/projects/{project_id}")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
             raise ValueError(response.json()["message"])
-        projects = response.json()["projects"]
-        projects = [p for p in projects if name in [p["name"], p["display_name"]]]
-        if len(projects) > 1:
-            raise ValueError(
-                f"You have access to multiple projects with the name: {name}. "
-                f"Please get by id instead: {projects}"
-            )
-        elif len(projects) < 1:
-            raise ValueError(f"No projects match that name: {name}")
-        return projects[0]
+        return response.json()
+
+    def delete_project(self, project_id: str) -> Dict[str, Any]:
+        url = urljoin(self.url, f"api/projects/{project_id}")
+        response = requests.delete(url, headers=self.settings.headers)
+        if not response.ok:
+            raise ValueError(response.json()["message"])
+        return response.reason
 
     def create_project(
         self,
