@@ -78,12 +78,13 @@ class SaturnConnection:
             raise KeyError("You must provide name or id.")
         if id:
             url = urljoin(self.url, "api/projects", id)
-            response = requests.get(url)
+            response = requests.get(url, headers=self.settings.headers)
             if not response.ok:
                 raise ValueError(response.json()["message"])
             return response.json()
-        url = urljoin(self.url, "api/projects?details=True")
-        response = requests.get(url)
+
+        url = urljoin(self.url, "api/projects?details=true")
+        response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
             raise ValueError(response.json()["message"])
         projects = response.json()
