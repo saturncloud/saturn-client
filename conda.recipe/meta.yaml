@@ -29,7 +29,7 @@ about:
   license_family: BSD
   license_file: LICENSE
   summary: "Python library for interacting with Saturn"
-  doc_url: http://docs.saturncloud.io
+  doc_url: https://www.saturncloud.io/docs/
   dev_url: https://github.com/saturncloud/saturn-client
 
 extra:
