@@ -133,7 +133,7 @@ class SaturnConnection:
                 else:
                     errors.append(
                         f"{k} is not a valid workspace_setting. "
-                        "Supported workspace_settings are {workspace_keys}."
+                        f"Supported workspace_settings are {workspace_keys}."
                     )
 
         if len(errors) > 0:
