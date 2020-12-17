@@ -15,6 +15,8 @@ from .settings import Settings
 
 
 log = logging.getLogger("saturn-client")
+if log.level == logging.NOTSET:
+    log.setLevel(logging.INFO)
 
 
 class SaturnConnection:
