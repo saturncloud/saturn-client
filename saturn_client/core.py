@@ -7,7 +7,6 @@ the future
 import json
 import logging
 
-from sys import stdout
 from typing import Any, Dict, Optional
 from urllib.parse import urljoin
 

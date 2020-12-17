@@ -52,5 +52,8 @@ class Settings:
 
     @property
     def headers(self):
-        """Saturn auth headers"""
-        return {"Authorization": f"token {self.SATURN_TOKEN}", "X-Saturn-Client-Version": __version__}
+        """Saturn auth headers including saturn-client version"""
+        return {
+            "Authorization": f"token {self.SATURN_TOKEN}",
+            "X-Saturn-Client-Version": __version__,
+        }
