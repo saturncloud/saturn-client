@@ -18,15 +18,7 @@ from ._version import get_versions
 __version__ = get_versions()["version"]
 
 
-logfmt = "[%(asctime)s] %(levelname)s - %(name)s | %(message)s"
-datefmt = "%Y-%m-%d %H:%M:%S"
-
 log = logging.getLogger("saturn-client")
-log.setLevel(logging.INFO)
-handler = logging.StreamHandler(stream=stdout)
-handler.setLevel(logging.INFO)
-handler.setFormatter(logging.Formatter(logfmt, datefmt))
-log.addHandler(handler)
 
 
 class SaturnConnection:
