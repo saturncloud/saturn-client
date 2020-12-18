@@ -5,6 +5,9 @@ dependencies:
   - python=3.7
   - requests
   # test dependencies
-  - black
   - flake8
   - pylint
+  - pip
+  - pip:
+    - black
+    - pre-commit

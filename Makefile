@@ -4,10 +4,10 @@ conda-update:
 
 .PHONY: format
 format:
-	black .
+	black saturn_client/
 
 .PHONY: lint
 lint:
 	flake8 .
-	black --check --diff .
+	black --check --diff saturn_client/
 	pylint saturn_client/
