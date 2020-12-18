@@ -42,4 +42,4 @@ jobs:
         shell: bash
         run: |
           python setup.py sdist
-          pip install dist/prefect-saturn-$(cat VERSION).tar.gz
+          pip install dist/saturn-client*.tar.gz
