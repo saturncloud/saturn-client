@@ -26,11 +26,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v1
-      - name: Set up Python 3.7
+      - name: Set up Python 3.8
         if: matrix.task != 'todo-checks'
         uses: s-weigand/setup-conda@v1
         with:
-          python-version: 3.7
+          python-version: 3.8
       - name: linting
         if: matrix.task == 'linting'
         shell: bash
