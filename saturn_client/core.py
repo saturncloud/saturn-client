@@ -146,6 +146,8 @@ class SaturnConnection:
 
 @dataclass
 class WorkspaceSettings:
+    """Encapsulates workspace settings validation and coercion"""
+
     size: str = None
     disk_space: str = None
     auto_shutoff: str = None
