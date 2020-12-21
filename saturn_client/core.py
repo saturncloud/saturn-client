@@ -90,7 +90,9 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(response.status_code, response.json()["message"]) from err
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(project_id)
+            ) from err
         return response.json()
 
     def delete_project(self, project_id: str) -> str:
@@ -100,7 +102,9 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(response.status_code, response.json()["message"]) from err
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(project_id)
+            ) from err
         return response.reason
 
     def create_project(
@@ -248,7 +252,9 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(response.status_code, response.json()["message"]) from err
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(project_id)
+            ) from err
         project = response.json()
 
         if not (project["jupyter_server_id"] and update_jupyter_server):
@@ -293,7 +299,9 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(response.status_code, response.json()["message"]) from err
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
+            ) from err
 
     def start_jupyter_server(self, jupyter_server_id):
         """Start a particular jupyter server"""
@@ -306,7 +314,9 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(response.status_code, response.json()["message"]) from err
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
+            ) from err
 
     def stop_dask_cluster(self, dask_cluster_id):
         """Stop a particular dask cluster"""
@@ -319,7 +329,9 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(response.status_code, response.json()["message"]) from err
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(dask_cluster_id)
+            ) from err
 
     def start_dask_cluster(self, dask_cluster_id):
         """Start a particular dask cluster"""
@@ -332,7 +344,9 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(response.status_code, response.json()["message"]) from err
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(dask_cluster_id)
+            ) from err
 
     def _validate_workspace_settings(
         self,
@@ -367,3 +381,10 @@ class SaturnConnection:
             errors.append("start_ssh must be set to a boolean if defined.")
         if len(errors) > 0:
             raise ValueError(" ".join(errors))
+
+
+def _maybe_name(_id):
+    """Return message if len of id does not match expectation (32)"""
+    if len(_id) == 32:
+        return ""
+    return " Maybe you used name rather than id?"
