@@ -1,0 +1,8 @@
+recursive-include saturn_client *.py
+recursive-include saturn_client *.yaml
+
+include versioneer.py
+include setup.py
+include README.md
+include LICENSE
+include saturn_client/_version.py

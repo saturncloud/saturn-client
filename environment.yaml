@@ -1,0 +1,13 @@
+name: saturn-client
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - requests
+  # test dependencies
+  - flake8
+  - pylint
+  - pip
+  - pip:
+    - black
+    - pre-commit

@@ -1,0 +1,16 @@
+[MESSAGES CONTROL]
+
+# This controls the checks that pylint ignores.
+#
+# If you add to this list, please keep it in
+# alphabetical order.
+#
+# to list all possibilities, run:
+#
+#     pylint --list-msg
+#
+disable=
+    invalid-name,
+    line-too-long,
+    too-many-arguments,
+    too-many-locals
