@@ -6,7 +6,7 @@ the future
 import json
 import logging
 
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
 import requests
@@ -105,7 +105,6 @@ class SaturnConnection:
             raise HTTPError(
                 response.status_code, response.json()["message"] + _maybe_name(project_id)
             ) from err
-        return response.reason
 
     def create_project(
         self,
@@ -200,8 +199,11 @@ class SaturnConnection:
         :param project_id: ID of project. This is the only field that is required.
         :param description: Short description of the project (less than 250 characters).
         :param image_uri: Location of the image. Example:
-            485185227295.dkr.ecr.us-east-1.amazonaws.com/saturn-dask:2020.12.01.21.10
-        :param start_script: Script that runs on start up. Examples: "pip install dask"
+            485185227295.dkr.ecr.us-east-1.amazonaws.com/saturn-dask:2020.12.01.21.10.
+            If this does not include a registry URL, Saturn will assume the image is publicly-available
+            on Docker Hub.
+        :param start_script: Script that runs on start up. Examples: "pip install dask".
+            This can be any valid code that can be run with ``sh``, and can be multiple lines.
         :param environment_variables: Env vars expressed as a dict. The names will be
             coerced to uppercase.
         :param working_dir: Location to use as working directory. Example: /home/jovyan/project
