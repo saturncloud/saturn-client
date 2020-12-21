@@ -132,4 +132,4 @@ conn.stop_dask_cluster("e59862cbde6647e09ec1202c21b8947a")
 ```
 
 ## Miscelaneous
-Some convenience properties are included on `SaturnConnection`. These include `conn.options` and `conn.describe_sizes`. These describe the options available for workspace settings.
+Some convenience properties are included on `SaturnConnection`. These include `conn.options` which describes the options available for workspace settings.
