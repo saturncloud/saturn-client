@@ -42,16 +42,15 @@ But all the other settings that are available in the UI can also be passed in:
 
 ```python
 project = conn.create_project(
-    name="my-project"
+    name="my-project",
     description="My new project - created from outside of Saturn programatically!",
     image_uri="saturncloud/saturn-gpu:2020.11.30",
     start_script="pip install git+https://github.com/saturncloud/dask-saturn.git@main",
     environment_variables={"DATA_URL": "s3://my-bucket/data"},
     working_dir="/home/jovyan/project",
-    workspace_settings={
-        "size": "large",
-        "auto_shutoff": "Never",
-        "start_ssh": False,
-    }
+    jupyter_size="large",
+    jupyter_disk_space="50Gi",
+    jupyter_auto_shutoff="Never",
+    jupyter_start_ssh=False,
 )
 ```
