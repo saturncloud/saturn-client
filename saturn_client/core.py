@@ -288,6 +288,21 @@ class SaturnConnection:
             raise HTTPError(response.status_code, response.json()["message"]) from err
         return project
 
+    def get_jupyter_server(self, jupyter_server_id):
+        """Get a particular jupyter server"""
+        url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}")
+        response = requests.get(
+            url,
+            headers=self.settings.headers,
+        )
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
+            ) from err
+        return response.json()
+
     def stop_jupyter_server(self, jupyter_server_id):
         """Stop a particular jupyter server"""
         url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}/stop")
