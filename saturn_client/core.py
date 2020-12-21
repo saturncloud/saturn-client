@@ -305,7 +305,7 @@ class SaturnConnection:
             ) from err
         return response.json()
 
-    def stop_jupyter_server(self, jupyter_server_id):
+    def stop_jupyter_server(self, jupyter_server_id: str) -> None:
         """Stop a particular jupyter server"""
         url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}/stop")
         response = requests.post(
@@ -320,7 +320,7 @@ class SaturnConnection:
                 response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
             ) from err
 
-    def start_jupyter_server(self, jupyter_server_id):
+    def start_jupyter_server(self, jupyter_server_id: str) -> None:
         """Start a particular jupyter server"""
         url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}/start")
         response = requests.post(
@@ -335,7 +335,7 @@ class SaturnConnection:
                 response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
             ) from err
 
-    def stop_dask_cluster(self, dask_cluster_id):
+    def stop_dask_cluster(self, dask_cluster_id: str) -> None:
         """Stop a particular dask cluster"""
         url = urljoin(self.url, f"api/dask_clusters/{dask_cluster_id}/close")
         response = requests.post(
@@ -350,7 +350,7 @@ class SaturnConnection:
                 response.status_code, response.json()["message"] + _maybe_name(dask_cluster_id)
             ) from err
 
-    def start_dask_cluster(self, dask_cluster_id):
+    def start_dask_cluster(self, dask_cluster_id: str) -> None:
         """Start a particular dask cluster"""
         url = urljoin(self.url, f"api/dask_clusters/{dask_cluster_id}/start")
         response = requests.post(
