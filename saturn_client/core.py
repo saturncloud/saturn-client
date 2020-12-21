@@ -6,7 +6,7 @@ the future
 import json
 import logging
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from urllib.parse import urljoin
 
 import requests
@@ -72,6 +72,16 @@ class SaturnConnection:
                 raise ValueError(response.reason)
             self._options = response.json()
         return self._options
+
+    def get_projects(self) -> List[Dict[str, Any]]:
+        """Get all projects that you have access to."""
+        url = urljoin(self.url, "api/projects")
+        response = requests.get(url, headers=self.settings.headers)
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(response.status_code, response.json()["message"]) from err
+        return response.json()["projects"]
 
     def get_project(self, project_id: str) -> Dict[str, Any]:
         """Get project by id"""
