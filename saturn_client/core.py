@@ -3,7 +3,6 @@
 NOTE: This is an experimental library and will likely change in
 the future
 """
-from dataclasses import dataclass
 import json
 import logging
 
@@ -64,7 +63,7 @@ class SaturnConnection:
         return response.json()["version"]
 
     @property
-    def options(self) -> Dict[str, str]:
+    def options(self) -> Dict[str, Any]:
         """Options for various settings"""
         if self._options is None:
             url = urljoin(self.url, "api/info/servers")
@@ -74,20 +73,18 @@ class SaturnConnection:
             self._options = response.json()
         return self._options
 
-    @property
-    def describe_sizes(self) -> Dict[str, str]:
-        """Instance size options"""
-        return self.options["sizes"]
-
     def create_project(
         self,
-        name: str = None,
+        name: str,
         description: Optional[str] = None,
         image_uri: Optional[str] = None,
         start_script: Optional[str] = None,
         environment_variables: Optional[Dict] = None,
         working_dir: Optional[str] = None,
-        workspace_settings: Optional[Dict] = None,
+        jupyter_size: Optional[str] = None,
+        jupyter_disk_space: Optional[str] = None,
+        jupyter_auto_shutoff: Optional[str] = None,
+        jupyter_start_ssh: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Create a project from scratch
@@ -100,24 +97,27 @@ class SaturnConnection:
         :param environment_variables: Env vars expressed as a dict. The names will be
             coerced to uppercase.
         :param working_dir: Location to use as working directory. Example: /home/jovyan/project
-        :param workspace_settings: Setting for the jupyter associated with the project.
-            These include: ``size``, ``disk_space``, ``auto_shutoff``, and ``start_ssh``.
-            The options for these are available from ``conn.options``.
+        :param jupyter_size: Size for the jupyter associated with the project.
+            The options for these are available from ``conn.options["sizes"]``.
+        :param jupyter_disk_space: Disk space for the jupyter associated with the project.
+            The options for these are available from ``conn.options["disk_space"]``.
+        :param jupyter_auto_shutoff: Auto shutoff interval for the jupyter associated with the
+            project. The options for these are available from ``conn.options["auto_shutoff"]``.
+        :param jupyter_start_ssh: Whether to start ssh for the jupyter associated with the project.
+            This is used for accessing the workspace from outside of Saturn.
         """
 
         if environment_variables:
             environment_variables = json.dumps(
                 {k.upper(): v for k, v in environment_variables.items()}
             )
-        try:
-            ws = WorkspaceSettings(**workspace_settings if workspace_settings else {})
-        except TypeError as err:
-            raise KeyError(
-                "The only valid workspace_setting options are: "
-                "size, disk_space, auto_shutoff, and start_ssh"
-            ) from err
-        ws.validate(self.options)
-        workspace_kwargs = ws.project_settings
+
+        self._validate_workspace_settings(
+            size=jupyter_size,
+            disk_space=jupyter_disk_space,
+            auto_shutoff=jupyter_auto_shutoff,
+            start_ssh=jupyter_start_ssh,
+        )
 
         project_config = {
             "name": name,
@@ -126,7 +126,10 @@ class SaturnConnection:
             "start_script": start_script,
             "environment_variables": environment_variables,
             "working_dir": working_dir,
-            **workspace_kwargs,
+            "jupyter_size": jupyter_size,
+            "jupyter_disk_space": jupyter_disk_space,
+            "jupyter_auto_shutoff": jupyter_auto_shutoff,
+            "jupyter_start_ssh": jupyter_start_ssh,
         }
         # only send kwargs that are explicitly set by user
         project_config = {k: v for k, v in project_config.items() if v is not None}
@@ -143,44 +146,36 @@ class SaturnConnection:
             raise HTTPError(response.status_code, response.json()["message"]) from err
         return response.json()
 
-
-@dataclass
-class WorkspaceSettings:
-    """Encapsulates workspace settings validation and coercion"""
-
-    size: str = None
-    disk_space: str = None
-    auto_shutoff: str = None
-    start_ssh: bool = None
-
-    def validate(self, all_options: Dict):
+    def _validate_workspace_settings(
+        self,
+        size: Optional[str] = None,
+        disk_space: Optional[str] = None,
+        auto_shutoff: Optional[str] = None,
+        start_ssh: Optional[bool] = None,
+    ):
         """Validate the options provided"""
         errors = []
-        if self.size is not None:
-            options = list(all_options["sizes"].keys())
-            if self.size not in options:
+        if size is not None:
+            options = list(self.options["sizes"].keys())
+            if size not in options:
                 errors.append(
-                    f"Proposed size: {self.size} is not a valid option. Options are: {options}."
+                    f"Proposed size: {size} is not a valid option. " f"Options are: {options}."
                 )
-        for attr in ["disk_space", "auto_shutoff"]:
-            options = all_options[attr]
-            value = getattr(self, attr, None)
-            if value is not None and value not in options:
+        if disk_space is not None:
+            options = self.options["disk_space"]
+            if disk_space not in options:
                 errors.append(
-                    f"Proposed {attr}: {value} is not a valid option. Options are: {options}."
+                    f"Proposed disk_space: {disk_space} is not a valid option. "
+                    f"Options are: {options}."
                 )
-        if self.start_ssh is not None and not isinstance(self.start_ssh, bool):
+        if auto_shutoff is not None:
+            options = self.options["auto_shutoff"]
+            if auto_shutoff not in options:
+                errors.append(
+                    f"Proposed auto_shutoff: {auto_shutoff} is not a valid option. "
+                    f"Options are: {options}."
+                )
+        if start_ssh is not None and not isinstance(start_ssh, bool):
             errors.append("start_ssh must be set to a boolean if defined.")
         if len(errors) > 0:
             raise ValueError(" ".join(errors))
-
-    @property
-    def project_settings(self) -> Dict[str, Any]:
-        """Project workspace settings"""
-        output = {
-            "jupyter_size": self.size,
-            "jupyter_disk_space": self.disk_space,
-            "jupyter_auto_shutoff": self.auto_shutoff,
-            "jupyter_start_ssh": self.start_ssh,
-        }
-        return {k: v for k, v in output.items() if v is not None}
