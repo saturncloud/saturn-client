@@ -112,6 +112,13 @@ class SaturnConnection:
                 {k.upper(): v for k, v in environment_variables.items()}
             )
 
+        self._validate_workspace_settings(
+            size=jupyter_size,
+            disk_space=jupyter_disk_space,
+            auto_shutoff=jupyter_auto_shutoff,
+            start_ssh=jupyter_start_ssh,
+        )
+
         project_config = {
             "name": name,
             "description": description,
@@ -120,7 +127,7 @@ class SaturnConnection:
             "environment_variables": environment_variables,
             "working_dir": working_dir,
             "jupyter_size": jupyter_size,
-            "jupyter_disc_space": jupyter_disk_space,
+            "jupyter_disk_space": jupyter_disk_space,
             "jupyter_auto_shutoff": jupyter_auto_shutoff,
             "jupyter_start_ssh": jupyter_start_ssh,
         }
@@ -138,3 +145,37 @@ class SaturnConnection:
         except HTTPError as err:
             raise HTTPError(response.status_code, response.json()["message"]) from err
         return response.json()
+
+    def _validate_workspace_settings(
+        self,
+        size: Optional[str] = None,
+        disk_space: Optional[str] = None,
+        auto_shutoff: Optional[str] = None,
+        start_ssh: Optional[bool] = None,
+    ):
+        """Validate the options provided"""
+        errors = []
+        if size is not None:
+            options = list(self.options["sizes"].keys())
+            if size not in options:
+                errors.append(
+                    f"Proposed size: {size} is not a valid option. " f"Options are: {options}."
+                )
+        if disk_space is not None:
+            options = self.options["disk_space"]
+            if disk_space not in options:
+                errors.append(
+                    f"Proposed disk_space: {disk_space} is not a valid option. "
+                    f"Options are: {options}."
+                )
+        if auto_shutoff is not None:
+            options = self.options["auto_shutoff"]
+            if auto_shutoff not in options:
+                errors.append(
+                    f"Proposed auto_shutoff: {auto_shutoff} is not a valid option. "
+                    f"Options are: {options}."
+                )
+        if start_ssh is not None and not isinstance(start_ssh, bool):
+            errors.append("start_ssh must be set to a boolean if defined.")
+        if len(errors) > 0:
+            raise ValueError(" ".join(errors))
