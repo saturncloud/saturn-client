@@ -6,8 +6,7 @@ the future
 import json
 import logging
 
-from collections import UserDict
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urljoin
 
 import requests
@@ -64,7 +63,7 @@ class SaturnConnection:
         return response.json()["version"]
 
     @property
-    def options(self) -> UserDict:
+    def options(self) -> Dict[str, Any]:
         """Options for various settings"""
         if self._options is None:
             url = urljoin(self.url, "api/info/servers")
@@ -72,7 +71,7 @@ class SaturnConnection:
             if not response.ok:
                 raise ValueError(response.reason)
             self._options = response.json()
-        return UserDict(self._options)
+        return self._options
 
     def create_project(
         self,
@@ -86,7 +85,7 @@ class SaturnConnection:
         jupyter_disk_space: Optional[str] = None,
         jupyter_auto_shutoff: Optional[str] = None,
         jupyter_start_ssh: Optional[bool] = None,
-    ) -> UserDict:
+    ) -> Dict[str, Any]:
         """
         Create a project from scratch
 
@@ -99,11 +98,11 @@ class SaturnConnection:
             coerced to uppercase.
         :param working_dir: Location to use as working directory. Example: /home/jovyan/project
         :param jupyter_size: Size for the jupyter associated with the project.
-            The options for these are available from ``conn.options.sizes``.
+            The options for these are available from ``conn.options["sizes"]``.
         :param jupyter_disk_space: Disk space for the jupyter associated with the project.
-            The options for these are available from ``conn.options.disk_space``.
+            The options for these are available from ``conn.options["disk_space"]``.
         :param jupyter_auto_shutoff: Auto shutoff interval for the jupyter associated with the
-            project. The options for these are available from ``conn.options.auto_shutoff.``.
+            project. The options for these are available from ``conn.options["auto_shutoff"]``.
         :param jupyter_start_ssh: Whether to start ssh for the jupyter associated with the project.
             This is used for accessing the workspace from outside of Saturn.
         """
@@ -138,4 +137,4 @@ class SaturnConnection:
             response.raise_for_status()
         except HTTPError as err:
             raise HTTPError(response.status_code, response.json()["message"]) from err
-        return UserDict(response.json())
+        return response.json()
