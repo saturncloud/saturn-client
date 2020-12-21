@@ -335,7 +335,7 @@ class SaturnConnection:
 
     def stop_dask_cluster(self, dask_cluster_id):
         """Stop a particular dask cluster"""
-        url = urljoin(self.url, f"api/dask_clusters/{dask_cluster_id}/stop")
+        url = urljoin(self.url, f"api/dask_clusters/{dask_cluster_id}/close")
         response = requests.post(
             url,
             data=json.dumps({}),
