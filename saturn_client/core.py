@@ -73,8 +73,8 @@ class SaturnConnection:
             self._options = response.json()
         return self._options
 
-    def get_projects(self) -> List[Dict[str, Any]]:
-        """Get all projects that you have access to."""
+    def list_projects(self) -> List[Dict[str, Any]]:
+        """List all projects that you have access to."""
         url = urljoin(self.url, "api/projects")
         response = requests.get(url, headers=self.settings.headers)
         try:
