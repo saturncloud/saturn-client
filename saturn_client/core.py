@@ -288,7 +288,7 @@ class SaturnConnection:
             raise HTTPError(response.status_code, response.json()["message"]) from err
         return project
 
-    def get_jupyter_server(self, jupyter_server_id):
+    def get_jupyter_server(self, jupyter_server_id) -> Dict[str, Any]:
         """Get a particular jupyter server"""
         url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}")
         response = requests.get(
