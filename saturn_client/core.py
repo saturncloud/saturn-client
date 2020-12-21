@@ -106,8 +106,8 @@ class SaturnConnection:
         """
 
         if environment_variables:
-            environment_variables = "\n".join(
-                f"{k.upper()}={v}" for k, v in environment_variables.items()
+            environment_variables = json.dumps(
+                {k.upper(): v for k, v in environment_variables.items()}
             )
         try:
             ws = WorkspaceSettings(**workspace_settings if workspace_settings else {})
