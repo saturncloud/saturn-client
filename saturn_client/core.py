@@ -7,6 +7,7 @@ import json
 import logging
 
 from time import sleep
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
@@ -306,17 +307,22 @@ class SaturnConnection:
             ) from err
         return response.json()
 
-    def wait_for_jupyter_server(
-        self, jupyter_server_id, status="running", max_retries=30, sleep_interval=5
-    ):
-        """Wait for jupyter server to be at a particular status"""
-        log.info(f"Waiting for Jupyter to be {status}...")
-        retries_so_far = 0
-        while retries_so_far < max_retries:
-            retries_so_far += 1
-            result = self.get_jupyter_server(jupyter_server_id)
-            log.info(f"Checking jupyter status: {result['status']}({retries_so_far}/{max_retries})")
-            if result["status"] == status:
+    def wait_for_jupyter_server(self, jupyter_server_id, timeout=360):
+        """Wait for jupyter server to be running
+
+        :param jupyter_server_id: ID of the jupyter_server to wait for.
+        :param timeout: Time in seconds before the wait gives us. Default is 360.
+        """
+        target_status = "running"
+        sleep_interval = 5
+        start_time = datetime.utcnow()
+
+        log.info(f"Waiting for Jupyter to be {target_status}...")
+        while (datetime.utcnow() - start_time).total_seconds < timeout:
+            status = self.get_jupyter_server(jupyter_server_id)["status"]
+            time_passed = (datetime.utcnow() - start_time).total_seconds
+            log.info(f"Checking jupyter status: {status}({time_passed}/{timeout})")
+            if status == target_status:
                 log.info(f"Jupyter server is {status}")
                 break
             else:
