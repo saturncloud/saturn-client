@@ -324,7 +324,8 @@ class SaturnConnection:
             if status == target_status:
                 log.info(f"Jupyter server is {status}")
                 break
-
+            if status == "error":
+                raise AssertionError(f"Jupyter server is {status}")
             sleep(sleep_interval)
             time_passed = (datetime.utcnow() - start_time).total_seconds()
             log.info(
