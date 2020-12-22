@@ -6,7 +6,7 @@ the future
 import json
 import logging
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
 import requests
@@ -72,6 +72,39 @@ class SaturnConnection:
                 raise ValueError(response.reason)
             self._options = response.json()
         return self._options
+
+    def list_projects(self) -> List[Dict[str, Any]]:
+        """List all projects that you have access to."""
+        url = urljoin(self.url, "api/projects")
+        response = requests.get(url, headers=self.settings.headers)
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(response.status_code, response.json()["message"]) from err
+        return response.json()["projects"]
+
+    def get_project(self, project_id: str) -> Dict[str, Any]:
+        """Get project by id"""
+        url = urljoin(self.url, f"api/projects/{project_id}")
+        response = requests.get(url, headers=self.settings.headers)
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(project_id)
+            ) from err
+        return response.json()
+
+    def delete_project(self, project_id: str) -> str:
+        """Delete project by id"""
+        url = urljoin(self.url, f"api/projects/{project_id}")
+        response = requests.delete(url, headers=self.settings.headers)
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(project_id)
+            ) from err
 
     def create_project(
         self,
@@ -146,6 +179,213 @@ class SaturnConnection:
             raise HTTPError(response.status_code, response.json()["message"]) from err
         return response.json()
 
+    def update_project(
+        self,
+        project_id: str,
+        description: Optional[str] = None,
+        image_uri: Optional[str] = None,
+        start_script: Optional[str] = None,
+        environment_variables: Optional[Dict] = None,
+        working_dir: Optional[str] = None,
+        jupyter_size: Optional[str] = None,
+        jupyter_disk_space: Optional[str] = None,
+        jupyter_auto_shutoff: Optional[str] = None,
+        jupyter_start_ssh: Optional[bool] = None,
+        update_jupyter_server: Optional[bool] = True,
+    ) -> Dict[str, Any]:
+        """
+        Create a project from scratch
+
+        :param project_id: ID of project. This is the only field that is required.
+        :param description: Short description of the project (less than 250 characters).
+        :param image_uri: Location of the image. Example:
+            485185227295.dkr.ecr.us-east-1.amazonaws.com/saturn-dask:2020.12.01.21.10.
+            If this does not include a registry URL, Saturn will assume the image is
+            publicly-available on Docker Hub.
+        :param start_script: Script that runs on start up. Examples: "pip install dask".
+            This can be any valid code that can be run with ``sh``, and can be multiple lines.
+        :param environment_variables: Env vars expressed as a dict. The names will be
+            coerced to uppercase.
+        :param working_dir: Location to use as working directory. Example: /home/jovyan/project
+        :param jupyter_size: Size for the jupyter associated with the project.
+            The options for these are available from ``conn.options["sizes"]``.
+        :param jupyter_disk_space: Disk space for the jupyter associated with the project.
+            The options for these are available from ``conn.options["disk_space"]``.
+        :param jupyter_auto_shutoff: Auto shutoff interval for the jupyter associated with the
+            project. The options for these are available from ``conn.options["auto_shutoff"]``.
+        :param jupyter_start_ssh: Whether to start ssh for the jupyter associated with the project.
+            This is used for accessing the workspace from outside of Saturn.
+        :param update_jupyter_server: Whether to update the jupyter server associated with the
+            project. This will stop the jupyter server if it is running.
+        """
+
+        if environment_variables:
+            environment_variables = json.dumps(
+                {k.upper(): v for k, v in environment_variables.items()}
+            )
+
+        self._validate_workspace_settings(
+            size=jupyter_size,
+            disk_space=jupyter_disk_space,
+            auto_shutoff=jupyter_auto_shutoff,
+            start_ssh=jupyter_start_ssh,
+        )
+
+        project_config = {
+            "description": description,
+            "image": image_uri,
+            "start_script": start_script,
+            "environment_variables": environment_variables,
+            "working_dir": working_dir,
+            "jupyter_size": jupyter_size,
+            "jupyter_disk_space": jupyter_disk_space,
+            "jupyter_auto_shutoff": jupyter_auto_shutoff,
+            "jupyter_start_ssh": jupyter_start_ssh,
+        }
+        # only send kwargs that are explicitly set by user
+        project_config = {k: v for k, v in project_config.items() if v is not None}
+
+        project_url = urljoin(self.url, f"api/projects/{project_id}")
+        response = requests.patch(
+            project_url,
+            data=json.dumps(project_config),
+            headers=self.settings.headers,
+        )
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(project_id)
+            ) from err
+        project = response.json()
+
+        if not (project["jupyter_server_id"] and update_jupyter_server):
+            return project
+
+        jupyter_config = {
+            "image": image_uri,
+            "start_script": start_script,
+            "environment_variables": environment_variables,
+            "working_dir": working_dir,
+            "size": jupyter_size,
+            "disk_space": jupyter_disk_space,
+            "auto_shutoff": jupyter_auto_shutoff,
+            "start_ssh": jupyter_start_ssh,
+        }
+        # only send kwargs that are explicitly set by user
+        jupyter_config = {k: v for k, v in jupyter_config.items() if v is not None}
+        if len(jupyter_config) == 0:
+            return project
+
+        self.stop_jupyter_server(project["jupyter_server_id"])
+        jupyter_url = urljoin(self.url, f"api/jupyter_servers/{project['jupyter_server_id']}")
+        response = requests.patch(
+            jupyter_url,
+            data=json.dumps(jupyter_config),
+            headers=self.settings.headers,
+        )
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(response.status_code, response.json()["message"]) from err
+        return project
+
+    def get_jupyter_server(self, jupyter_server_id) -> Dict[str, Any]:
+        """Get a particular jupyter server"""
+        url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}")
+        response = requests.get(
+            url,
+            headers=self.settings.headers,
+        )
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
+            ) from err
+        return response.json()
+
+    def stop_jupyter_server(self, jupyter_server_id: str) -> None:
+        """Stop a particular jupyter server.
+
+        This method will return as soon as the stop process has been triggered. It'll take
+        longer for the jupyter server to shut off, but you can check the status using
+        ``get_jupyter_server``
+        """
+        url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}/stop")
+        response = requests.post(
+            url,
+            data=json.dumps({}),
+            headers=self.settings.headers,
+        )
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
+            ) from err
+
+    def start_jupyter_server(self, jupyter_server_id: str) -> None:
+        """Start a particular jupyter server.
+
+        This method will return as soon as the start process has been triggered. It'll take
+        longer for the jupyter server to be up, but you can check the status using
+        ``get_jupyter_server``
+        """
+        url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}/start")
+        response = requests.post(
+            url,
+            data=json.dumps({}),
+            headers=self.settings.headers,
+        )
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
+            ) from err
+
+    def stop_dask_cluster(self, dask_cluster_id: str) -> None:
+        """Stop a particular dask cluster.
+
+        This method will return as soon as the stop process has been triggered. It'll take
+        longer for the dask cluster to actually shut down.
+        """
+        url = urljoin(self.url, f"api/dask_clusters/{dask_cluster_id}/close")
+        response = requests.post(
+            url,
+            data=json.dumps({}),
+            headers=self.settings.headers,
+        )
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(dask_cluster_id)
+            ) from err
+
+    def start_dask_cluster(self, dask_cluster_id: str) -> None:
+        """Start a particular dask cluster.
+
+        This method will return as soon as the start process has been triggered.
+        It'll take longer for the  dask cluster to be up. This is primarily
+        useful when the dask cluster has been stopped as a side-effect of
+        stopping a jupyter server or updating a project. For more fine-grain
+        control over the dask cluster see dask-saturn.
+        """
+        url = urljoin(self.url, f"api/dask_clusters/{dask_cluster_id}/start")
+        response = requests.post(
+            url,
+            data=json.dumps({}),
+            headers=self.settings.headers,
+        )
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            raise HTTPError(
+                response.status_code, response.json()["message"] + _maybe_name(dask_cluster_id)
+            ) from err
+
     def _validate_workspace_settings(
         self,
         size: Optional[str] = None,
@@ -179,3 +419,10 @@ class SaturnConnection:
             errors.append("start_ssh must be set to a boolean if defined.")
         if len(errors) > 0:
             raise ValueError(" ".join(errors))
+
+
+def _maybe_name(_id):
+    """Return message if len of id does not match expectation (32)"""
+    if len(_id) == 32:
+        return ""
+    return " Maybe you used name rather than id?"
