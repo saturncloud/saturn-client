@@ -200,8 +200,8 @@ class SaturnConnection:
         :param description: Short description of the project (less than 250 characters).
         :param image_uri: Location of the image. Example:
             485185227295.dkr.ecr.us-east-1.amazonaws.com/saturn-dask:2020.12.01.21.10.
-            If this does not include a registry URL, Saturn will assume the image is publicly-available
-            on Docker Hub.
+            If this does not include a registry URL, Saturn will assume the image is
+            publicly-available on Docker Hub.
         :param start_script: Script that runs on start up. Examples: "pip install dask".
             This can be any valid code that can be run with ``sh``, and can be multiple lines.
         :param environment_variables: Env vars expressed as a dict. The names will be
