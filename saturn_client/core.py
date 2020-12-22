@@ -326,7 +326,7 @@ class SaturnConnection:
                 break
             if status == "error":
                 raise AssertionError(
-                    f"Jupyter server has status: {status}. " "See logs in Saturn User Interface."
+                    f"Jupyter server has status: {status}. See logs in Saturn User Interface."
                 )
             sleep(sleep_interval)
             time_passed = (datetime.utcnow() - start_time).total_seconds()
