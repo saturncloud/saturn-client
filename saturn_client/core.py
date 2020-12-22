@@ -316,17 +316,21 @@ class SaturnConnection:
         target_status = "running"
         sleep_interval = 5
         start_time = datetime.utcnow()
+        time_passed = 0
 
         log.info(f"Waiting for Jupyter to be {target_status}...")
-        while (datetime.utcnow() - start_time).total_seconds() < timeout:
+        while time_passed < timeout:
             status = self.get_jupyter_server(jupyter_server_id)["status"]
-            time_passed = (datetime.utcnow() - start_time).total_seconds()
-            log.info(f"Checking jupyter status: {status}({time_passed}/{timeout})")
             if status == target_status:
                 log.info(f"Jupyter server is {status}")
                 break
-            else:
-                sleep(sleep_interval)
+
+            sleep(sleep_interval)
+            time_passed = (datetime.utcnow() - start_time).total_seconds()
+            log.info(
+                f"Checking jupyter status: {status} "
+                f"(seconds passed: {time_passed:.0f}/{timeout})"
+            )
 
     def stop_jupyter_server(self, jupyter_server_id: str) -> None:
         """Stop a particular jupyter server.
