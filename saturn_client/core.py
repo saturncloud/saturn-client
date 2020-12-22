@@ -318,9 +318,9 @@ class SaturnConnection:
         start_time = datetime.utcnow()
 
         log.info(f"Waiting for Jupyter to be {target_status}...")
-        while (datetime.utcnow() - start_time).total_seconds < timeout:
+        while (datetime.utcnow() - start_time).total_seconds() < timeout:
             status = self.get_jupyter_server(jupyter_server_id)["status"]
-            time_passed = (datetime.utcnow() - start_time).total_seconds
+            time_passed = (datetime.utcnow() - start_time).total_seconds()
             log.info(f"Checking jupyter status: {status}({time_passed}/{timeout})")
             if status == target_status:
                 log.info(f"Jupyter server is {status}")
