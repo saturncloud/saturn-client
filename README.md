@@ -118,7 +118,7 @@ conn.stop_jupyter_server("acb4588d062d4d0ba0680a4d49c72cf8")
 Dask cluster methods act directly on the dask cluster and require the dask_cluster_id. This can be found on the response from `get_jupyter_server`.
 
 ### Start a dask cluster
-Start a dask cluster by ID. This method will return as soon as the start process has been triggered. It'll take longer for the  dask cluster to be up. This is primarily useful when the dask cluster has been stopped as a side-effect of stopping a jupyter server or updating a project. For more fine-grain control over the dask cluster we recommend using [dask-saturn](https://github.com/saturncloud/dask-saturn).
+Start a dask cluster by ID. This method will return as soon as the start process has been triggered. It'll take longer for the  dask cluster to be up. This is primarily useful when the dask cluster has been stopped as a side-effect of stopping a jupyter server or updating a project. For more fine-grain control over the dask cluster see [dask-saturn](https://github.com/saturncloud/dask-saturn).
 
 ```python
 conn.start_dask_cluster("e59862cbde6647e09ec1202c21b8947a")

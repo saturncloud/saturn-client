@@ -306,7 +306,12 @@ class SaturnConnection:
         return response.json()
 
     def stop_jupyter_server(self, jupyter_server_id: str) -> None:
-        """Stop a particular jupyter server"""
+        """Stop a particular jupyter server.
+
+        This method will return as soon as the stop process has been triggered. It'll take
+        longer for the jupyter server to shut off, but you can check the status using
+        ``get_jupyter_server``
+        """
         url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}/stop")
         response = requests.post(
             url,
@@ -321,7 +326,12 @@ class SaturnConnection:
             ) from err
 
     def start_jupyter_server(self, jupyter_server_id: str) -> None:
-        """Start a particular jupyter server"""
+        """Start a particular jupyter server.
+
+        This method will return as soon as the start process has been triggered. It'll take
+        longer for the jupyter server to be up, but you can check the status using
+        ``get_jupyter_server``
+        """
         url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}/start")
         response = requests.post(
             url,
@@ -336,7 +346,11 @@ class SaturnConnection:
             ) from err
 
     def stop_dask_cluster(self, dask_cluster_id: str) -> None:
-        """Stop a particular dask cluster"""
+        """Stop a particular dask cluster.
+
+        This method will return as soon as the stop process has been triggered. It'll take
+        longer for the dask cluster to actually shut down.
+        """
         url = urljoin(self.url, f"api/dask_clusters/{dask_cluster_id}/close")
         response = requests.post(
             url,
@@ -351,7 +365,14 @@ class SaturnConnection:
             ) from err
 
     def start_dask_cluster(self, dask_cluster_id: str) -> None:
-        """Start a particular dask cluster"""
+        """Start a particular dask cluster.
+
+        This method will return as soon as the start process has been triggered.
+        It'll take longer for the  dask cluster to be up. This is primarily
+        useful when the dask cluster has been stopped as a side-effect of
+        stopping a jupyter server or updating a project. For more fine-grain
+        control over the dask cluster see dask-saturn.
+        """
         url = urljoin(self.url, f"api/dask_clusters/{dask_cluster_id}/start")
         response = requests.post(
             url,
