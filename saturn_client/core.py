@@ -307,11 +307,11 @@ class SaturnConnection:
             ) from err
         return response.json()
 
-    def wait_for_jupyter_server(self, jupyter_server_id, timeout=360):
+    def wait_for_jupyter_server(self, jupyter_server_id: str, timeout: int = 360) -> None:
         """Wait for jupyter server to be running
 
         :param jupyter_server_id: ID of the jupyter_server to wait for.
-        :param timeout: Time in seconds before the wait gives us. Default is 360.
+        :param timeout: Maximum time in seconds to wait. Default is 360 (6 minutes).
         """
         target_status = "running"
         sleep_interval = 5
