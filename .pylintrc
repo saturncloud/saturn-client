@@ -12,5 +12,6 @@
 disable=
     invalid-name,
     line-too-long,
+    logging-fstring-interpolation,
     too-many-arguments,
     too-many-locals

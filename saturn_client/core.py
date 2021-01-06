@@ -6,6 +6,8 @@ the future
 import json
 import logging
 
+from time import sleep
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
@@ -304,6 +306,34 @@ class SaturnConnection:
                 response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
             ) from err
         return response.json()
+
+    def wait_for_jupyter_server(self, jupyter_server_id: str, timeout: int = 360) -> None:
+        """Wait for jupyter server to be running
+
+        :param jupyter_server_id: ID of the jupyter_server to wait for.
+        :param timeout: Maximum time in seconds to wait. Default is 360 (6 minutes).
+        """
+        target_status = "running"
+        sleep_interval = 5
+        start_time = datetime.utcnow()
+        time_passed = 0
+
+        log.info(f"Waiting for Jupyter to be {target_status}...")
+        while time_passed < timeout:
+            status = self.get_jupyter_server(jupyter_server_id)["status"]
+            if status == target_status:
+                log.info(f"Jupyter server is {status}")
+                break
+            if status == "error":
+                raise AssertionError(
+                    f"Jupyter server has status: {status}. See logs in Saturn User Interface."
+                )
+            sleep(sleep_interval)
+            time_passed = (datetime.utcnow() - start_time).total_seconds()
+            log.info(
+                f"Checking jupyter status: {status} "
+                f"(seconds passed: {time_passed:.0f}/{timeout})"
+            )
 
     def stop_jupyter_server(self, jupyter_server_id: str) -> None:
         """Stop a particular jupyter server.
