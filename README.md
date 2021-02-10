@@ -10,7 +10,7 @@ To connect to Saturn you'll need the URL of your Saturn instance. It'll be somet
 > Note that this library is new and experimental - we expect to make this process easier in the future.
 
 ```python
-from saturn import SaturnConnection
+from saturn_client import SaturnConnection
 
 # From outside of Saturn
 conn = SaturnConnection(
@@ -23,7 +23,7 @@ conn = SaturnConnection(
 From inside of saturn on the other hand you can just run:
 
 ```python
-from saturn import SaturnConnection
+from saturn_client import SaturnConnection
 
 # From inside of Saturn
 conn = SaturnConnection()
