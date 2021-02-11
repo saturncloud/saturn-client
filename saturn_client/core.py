@@ -444,5 +444,7 @@ def _maybe_name(_id):
 
 def _http_error(response: requests.Response, resource_id: str):
     """Return HTTPError from response for a resource"""
-    response_message = response.json().get("message", "saturn-client encountered an unexpected error.")
+    response_message = response.json().get(
+        "message", "saturn-client encountered an unexpected error."
+    )
     return HTTPError(response.status_code, f"{response_message} {_maybe_name(resource_id)}")
