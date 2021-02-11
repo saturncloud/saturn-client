@@ -443,7 +443,6 @@ def _maybe_name(_id):
 
 
 def http_error(response: requests.Response, resource_id: str):
+    """Return HTTPError from response for a resource"""
     response_message = response.json().get("message", "")
-    return HTTPError(
-        response.status_code, f"{response_message} {_maybe_name(resource_id)}"
-    )
+    return HTTPError(response.status_code, f"{response_message} {_maybe_name(resource_id)}")
