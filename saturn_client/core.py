@@ -92,9 +92,7 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(
-                response.status_code, response.json()["message"] + _maybe_name(project_id)
-            ) from err
+            raise _http_error(response, project_id) from err
         return response.json()
 
     def delete_project(self, project_id: str) -> str:
@@ -104,9 +102,7 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(
-                response.status_code, response.json()["message"] + _maybe_name(project_id)
-            ) from err
+            raise _http_error(response, project_id) from err
 
     def create_project(
         self,
@@ -256,9 +252,7 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(
-                response.status_code, response.json()["message"] + _maybe_name(project_id)
-            ) from err
+            raise _http_error(response, project_id) from err
         project = response.json()
 
         if not (project["jupyter_server_id"] and update_jupyter_server):
@@ -302,9 +296,7 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(
-                response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
-            ) from err
+            raise _http_error(response, jupyter_server_id) from err
         return response.json()
 
     def wait_for_jupyter_server(self, jupyter_server_id: str, timeout: int = 360) -> None:
@@ -351,9 +343,7 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(
-                response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
-            ) from err
+            raise _http_error(response, jupyter_server_id) from err
 
     def start_jupyter_server(self, jupyter_server_id: str) -> None:
         """Start a particular jupyter server.
@@ -371,9 +361,7 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(
-                response.status_code, response.json()["message"] + _maybe_name(jupyter_server_id)
-            ) from err
+            raise _http_error(response, jupyter_server_id) from err
 
     def stop_dask_cluster(self, dask_cluster_id: str) -> None:
         """Stop a particular dask cluster.
@@ -390,9 +378,7 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(
-                response.status_code, response.json()["message"] + _maybe_name(dask_cluster_id)
-            ) from err
+            raise _http_error(response, dask_cluster_id) from err
 
     def start_dask_cluster(self, dask_cluster_id: str) -> None:
         """Start a particular dask cluster.
@@ -412,9 +398,7 @@ class SaturnConnection:
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise HTTPError(
-                response.status_code, response.json()["message"] + _maybe_name(dask_cluster_id)
-            ) from err
+            raise _http_error(response, dask_cluster_id) from err
 
     def _validate_workspace_settings(
         self,
@@ -455,4 +439,12 @@ def _maybe_name(_id):
     """Return message if len of id does not match expectation (32)"""
     if len(_id) == 32:
         return ""
-    return " Maybe you used name rather than id?"
+    return "Maybe you used name rather than id?"
+
+
+def _http_error(response: requests.Response, resource_id: str):
+    """Return HTTPError from response for a resource"""
+    response_message = response.json().get(
+        "message", "saturn-client encountered an unexpected error."
+    )
+    return HTTPError(response.status_code, f"{response_message} {_maybe_name(resource_id)}")
