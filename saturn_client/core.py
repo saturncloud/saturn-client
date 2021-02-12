@@ -332,7 +332,7 @@ class SaturnConnection:
                 end="",
             )
             sleep(sleep_interval)
-        raise TimeoutError("Timed out wait for jupyter server")
+        raise TimeoutError("Timed out waiting for jupyter server")
 
     def stop_jupyter_server(self, jupyter_server_id: str) -> None:
         """Stop a particular jupyter server.
