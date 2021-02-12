@@ -322,9 +322,10 @@ class SaturnConnection:
                 )
             sleep(sleep_interval)
             time_passed = (datetime.utcnow() - start_time).total_seconds()
-            log.info(
+            print(
                 f"Checking jupyter status: {status} "
-                f"(seconds passed: {time_passed:.0f}/{timeout})"
+                f"(seconds passed: {time_passed:.0f}/{timeout})",
+                end="\r",
             )
 
     def stop_jupyter_server(self, jupyter_server_id: str) -> None:
