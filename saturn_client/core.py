@@ -75,36 +75,36 @@ class SaturnConnection:
             self._options = response.json()
         return self._options
 
-    def list_projects(self) -> List[Dict[str, Any]]:
-        """List all projects that you have access to."""
-        url = urljoin(self.url, "api/projects")
+    def list_jupyter_servers(self) -> List[Dict[str, Any]]:
+        """List all jupyter_servers that you have access to."""
+        url = urljoin(self.url, "api/jupyter_servers")
         response = requests.get(url, headers=self.settings.headers)
         try:
             response.raise_for_status()
         except HTTPError as err:
             raise HTTPError(response.status_code, response.json()["message"]) from err
-        return response.json()["projects"]
+        return response.json()["servers"]
 
-    def get_project(self, project_id: str) -> Dict[str, Any]:
-        """Get project by id"""
-        url = urljoin(self.url, f"api/projects/{project_id}")
+    def get_jupyter_server(self, jupyter_server_id: str) -> Dict[str, Any]:
+        """Get jupyter server by id"""
+        url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}")
         response = requests.get(url, headers=self.settings.headers)
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise _http_error(response, project_id) from err
+            raise _http_error(response, jupyter_server_id) from err
         return response.json()
 
-    def delete_project(self, project_id: str) -> str:
-        """Delete project by id"""
-        url = urljoin(self.url, f"api/projects/{project_id}")
+    def delete_jupyter_server(self, jupyter_server_id: str) -> str:
+        """Delete jupyter_server by id"""
+        url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}")
         response = requests.delete(url, headers=self.settings.headers)
         try:
             response.raise_for_status()
         except HTTPError as err:
-            raise _http_error(response, project_id) from err
+            raise _http_error(response, jupyter_server_id) from err
 
-    def create_project(
+    def create_jupyter_server(
         self,
         name: str,
         description: Optional[str] = None,
@@ -112,29 +112,29 @@ class SaturnConnection:
         start_script: Optional[str] = None,
         environment_variables: Optional[Dict] = None,
         working_dir: Optional[str] = None,
-        jupyter_size: Optional[str] = None,
-        jupyter_disk_space: Optional[str] = None,
-        jupyter_auto_shutoff: Optional[str] = None,
-        jupyter_start_ssh: Optional[bool] = None,
+        size: Optional[str] = None,
+        disk_space: Optional[str] = None,
+        auto_shutoff: Optional[str] = None,
+        start_ssh: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
-        Create a project from scratch
+        Create a jupyter server from scratch
 
-        :param name: Name of project. This is the only field that is required.
-        :param description: Short description of the project (less than 250 characters).
+        :param name: Name of jupyter server. This is the only field that is required.
+        :param description: Short description of the jupyter server (less than 250 characters).
         :param image_uri: Location of the image. Example:
             485185227295.dkr.ecr.us-east-1.amazonaws.com/saturn-dask:2020.12.01.21.10
         :param start_script: Script that runs on start up. Examples: "pip install dask"
         :param environment_variables: Env vars expressed as a dict. The names will be
             coerced to uppercase.
-        :param working_dir: Location to use as working directory. Example: /home/jovyan/project
-        :param jupyter_size: Size for the jupyter associated with the project.
+        :param working_dir: Location to use as working directory. Example: /home/jovyan/git-repos
+        :param size: Size for the jupyter server.
             The options for these are available from ``conn.options["sizes"]``.
-        :param jupyter_disk_space: Disk space for the jupyter associated with the project.
+        :param disk_space: Disk space for the jupyter server.
             The options for these are available from ``conn.options["disk_space"]``.
-        :param jupyter_auto_shutoff: Auto shutoff interval for the jupyter associated with the
-            project. The options for these are available from ``conn.options["auto_shutoff"]``.
-        :param jupyter_start_ssh: Whether to start ssh for the jupyter associated with the project.
+        :param auto_shutoff: Auto shutoff interval for the jupyter server.
+            The options for these are available from ``conn.options["auto_shutoff"]``.
+        :param start_ssh: Whether to start ssh for the jupyter server.
             This is used for accessing the workspace from outside of Saturn.
         """
 
@@ -144,31 +144,31 @@ class SaturnConnection:
             )
 
         self._validate_workspace_settings(
-            size=jupyter_size,
-            disk_space=jupyter_disk_space,
-            auto_shutoff=jupyter_auto_shutoff,
-            start_ssh=jupyter_start_ssh,
+            size=size,
+            disk_space=disk_space,
+            auto_shutoff=auto_shutoff,
+            start_ssh=start_ssh,
         )
 
-        project_config = {
+        config = {
             "name": name,
             "description": description,
             "image": image_uri,
             "start_script": start_script,
             "environment_variables": environment_variables,
             "working_dir": working_dir,
-            "jupyter_size": jupyter_size,
-            "jupyter_disk_space": jupyter_disk_space,
-            "jupyter_auto_shutoff": jupyter_auto_shutoff,
-            "jupyter_start_ssh": jupyter_start_ssh,
+            "size": size,
+            "disk_space": disk_space,
+            "auto_shutoff": auto_shutoff,
+            "start_ssh": start_ssh,
         }
         # only send kwargs that are explicitly set by user
-        project_config = {k: v for k, v in project_config.items() if v is not None}
+        config = {k: v for k, v in config.items() if v is not None}
 
-        url = urljoin(self.url, "api/projects")
+        url = urljoin(self.url, "api/jupyter_servers")
         response = requests.post(
             url,
-            data=json.dumps(project_config),
+            data=json.dumps(config),
             headers=self.settings.headers,
         )
         try:
@@ -177,44 +177,38 @@ class SaturnConnection:
             raise HTTPError(response.status_code, response.json()["message"]) from err
         return response.json()
 
-    def update_project(
+    def update_jupyter_server(
         self,
-        project_id: str,
+        jupyter_server_id: str,
         description: Optional[str] = None,
         image_uri: Optional[str] = None,
         start_script: Optional[str] = None,
         environment_variables: Optional[Dict] = None,
         working_dir: Optional[str] = None,
-        jupyter_size: Optional[str] = None,
-        jupyter_disk_space: Optional[str] = None,
-        jupyter_auto_shutoff: Optional[str] = None,
-        jupyter_start_ssh: Optional[bool] = None,
-        update_jupyter_server: Optional[bool] = True,
+        size: Optional[str] = None,
+        disk_space: Optional[str] = None,
+        auto_shutoff: Optional[str] = None,
+        start_ssh: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
-        Create a project from scratch
+        Update a jupyter server. If the server is running it will be restarted.
 
-        :param project_id: ID of project. This is the only field that is required.
-        :param description: Short description of the project (less than 250 characters).
+        :param jupyter_server_id: ID of jupyter server. This is the only field that is required.
+        :param description: Short description of the jupyter server (less than 250 characters).
         :param image_uri: Location of the image. Example:
-            485185227295.dkr.ecr.us-east-1.amazonaws.com/saturn-dask:2020.12.01.21.10.
-            If this does not include a registry URL, Saturn will assume the image is
-            publicly-available on Docker Hub.
-        :param start_script: Script that runs on start up. Examples: "pip install dask".
-            This can be any valid code that can be run with ``sh``, and can be multiple lines.
+            485185227295.dkr.ecr.us-east-1.amazonaws.com/saturn-dask:2020.12.01.21.10
+        :param start_script: Script that runs on start up. Examples: "pip install dask"
         :param environment_variables: Env vars expressed as a dict. The names will be
             coerced to uppercase.
-        :param working_dir: Location to use as working directory. Example: /home/jovyan/project
-        :param jupyter_size: Size for the jupyter associated with the project.
+        :param working_dir: Location to use as working directory. Example: /home/jovyan/git-repos
+        :param size: Size for the jupyter server.
             The options for these are available from ``conn.options["sizes"]``.
-        :param jupyter_disk_space: Disk space for the jupyter associated with the project.
+        :param disk_space: Disk space for the jupyter server.
             The options for these are available from ``conn.options["disk_space"]``.
-        :param jupyter_auto_shutoff: Auto shutoff interval for the jupyter associated with the
-            project. The options for these are available from ``conn.options["auto_shutoff"]``.
-        :param jupyter_start_ssh: Whether to start ssh for the jupyter associated with the project.
+        :param auto_shutoff: Auto shutoff interval for the jupyter server.
+            The options for these are available from ``conn.options["auto_shutoff"]``.
+        :param start_ssh: Whether to start ssh for the jupyter server.
             This is used for accessing the workspace from outside of Saturn.
-        :param update_jupyter_server: Whether to update the jupyter server associated with the
-            project. This will stop the jupyter server if it is running.
         """
 
         if environment_variables:
@@ -223,81 +217,38 @@ class SaturnConnection:
             )
 
         self._validate_workspace_settings(
-            size=jupyter_size,
-            disk_space=jupyter_disk_space,
-            auto_shutoff=jupyter_auto_shutoff,
-            start_ssh=jupyter_start_ssh,
+            size=size,
+            disk_space=disk_space,
+            auto_shutoff=auto_shutoff,
+            start_ssh=start_ssh,
         )
 
-        project_config = {
+        config = {
             "description": description,
             "image": image_uri,
             "start_script": start_script,
             "environment_variables": environment_variables,
             "working_dir": working_dir,
-            "jupyter_size": jupyter_size,
-            "jupyter_disk_space": jupyter_disk_space,
-            "jupyter_auto_shutoff": jupyter_auto_shutoff,
-            "jupyter_start_ssh": jupyter_start_ssh,
+            "size": size,
+            "disk_space": disk_space,
+            "auto_shutoff": auto_shutoff,
+            "start_ssh": start_ssh,
         }
         # only send kwargs that are explicitly set by user
-        project_config = {k: v for k, v in project_config.items() if v is not None}
+        config = {k: v for k, v in config.items() if v is not None}
 
-        project_url = urljoin(self.url, f"api/projects/{project_id}")
-        response = requests.patch(
-            project_url,
-            data=json.dumps(project_config),
-            headers=self.settings.headers,
-        )
-        try:
-            response.raise_for_status()
-        except HTTPError as err:
-            raise _http_error(response, project_id) from err
-        project = response.json()
-
-        if not (project["jupyter_server_id"] and update_jupyter_server):
-            return project
-
-        jupyter_config = {
-            "image": image_uri,
-            "start_script": start_script,
-            "environment_variables": environment_variables,
-            "working_dir": working_dir,
-            "size": jupyter_size,
-            "disk_space": jupyter_disk_space,
-            "auto_shutoff": jupyter_auto_shutoff,
-            "start_ssh": jupyter_start_ssh,
-        }
-        # only send kwargs that are explicitly set by user
-        jupyter_config = {k: v for k, v in jupyter_config.items() if v is not None}
-        if len(jupyter_config) == 0:
-            return project
-
-        self.stop_jupyter_server(project["jupyter_server_id"])
-        jupyter_url = urljoin(self.url, f"api/jupyter_servers/{project['jupyter_server_id']}")
-        response = requests.patch(
-            jupyter_url,
-            data=json.dumps(jupyter_config),
-            headers=self.settings.headers,
-        )
-        try:
-            response.raise_for_status()
-        except HTTPError as err:
-            raise HTTPError(response.status_code, response.json()["message"]) from err
-        return project
-
-    def get_jupyter_server(self, jupyter_server_id) -> Dict[str, Any]:
-        """Get a particular jupyter server"""
         url = urljoin(self.url, f"api/jupyter_servers/{jupyter_server_id}")
-        response = requests.get(
+        response = requests.patch(
             url,
+            data=json.dumps(config),
             headers=self.settings.headers,
         )
         try:
             response.raise_for_status()
         except HTTPError as err:
             raise _http_error(response, jupyter_server_id) from err
-        return response.json()
+        jupyter = response.json()
+        return jupyter
 
     def wait_for_jupyter_server(self, jupyter_server_id: str, timeout: int = 360) -> None:
         """Wait for jupyter server to be running
@@ -393,7 +344,7 @@ class SaturnConnection:
         This method will return as soon as the start process has been triggered.
         It'll take longer for the  dask cluster to be up. This is primarily
         useful when the dask cluster has been stopped as a side-effect of
-        stopping a jupyter server or updating a project. For more fine-grain
+        stopping or updating a jupyter server. For more fine-grain
         control over the dask cluster see dask-saturn.
         """
         url = urljoin(self.url, f"api/dask_clusters/{dask_cluster_id}/start")
