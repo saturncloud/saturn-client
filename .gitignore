@@ -64,3 +64,5 @@ prefect-fork/*
 # editor files
 **/.idea/
 **/.vscode/
+
+scratch

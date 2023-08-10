@@ -1,6 +1,6 @@
 .PHONY: conda-update
 conda-update:
-	conda env update -n saturn-client --file environment.yaml
+	mamba env create -n saturn-client --file environment.yaml --force
 
 .PHONY: format
 format:
