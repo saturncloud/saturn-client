@@ -4,7 +4,7 @@ conda-update:
 
 .PHONY: format
 format:
-	black saturn_client/
+	black -l 100 saturn_client/
 
 .PHONY: lint
 lint:
