@@ -23,7 +23,6 @@ class Settings:
         self,
         base_url: Optional[str] = None,
         saturn_token: Optional[str] = None,
-        remote_storage: Optiona[str] = None,
     ):
         if base_url:
             self.BASE_URL = base_url
@@ -46,7 +45,6 @@ class Settings:
             except KeyError as err:
                 err_msg = "Missing required value Saturn api token."
                 raise RuntimeError(err_msg) from err
-        if self.remote_storage is None:
 
     @property
     def url(self):

@@ -185,24 +185,24 @@ class SaturnConnection:
             return primary_org
         raise ValueError("primary organization not found")
 
-    def upload_source(self, local_path: str, saturn_resource_path: str = None) -> str:
+    def upload_source(self, local_path: str, resource_name: str, saturn_resource_path: str) -> str:
         """
         This method uploads a local_path to some location in sfs, which in the future
         will be downloaded to saturn_resource_path
         """
         username = self.current_user['username']
         org_name = self.primary_org['name']
-        sfs_path = f"sfs://{org_name}/{username}{saturn_resource_path}"
+        sfs_path = f"{org_name}/{username}/{resource_name}{saturn_resource_path}"
         fs = SaturnFS()
         operation = file_op(True, False)
         callback = FileOpCallback(operation=operation)
         fs.put(
             local_path,
-            path,
+            sfs_path,
             recursive=True,
             callback=callback
         )
-        return sfs_path
+        return "sfs://" + sfs_path
 
     @property
     def current_user(self):
