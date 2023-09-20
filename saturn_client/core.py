@@ -13,6 +13,11 @@ from urllib.parse import urljoin, urlencode
 
 import requests
 from requests.exceptions import HTTPError
+from fsspec.generic import rsync
+
+from saturnfs import SaturnFS
+from saturnfs.cli.callback import FileOpCallback, file_op
+
 from .settings import Settings
 
 
@@ -160,6 +165,44 @@ class SaturnConnection:
 
         # test connection to raise errors early
         self._saturn_version = self._get_saturn_version()
+
+    @property
+    def orgs(self) -> List[Dict[str, Any]]:
+        url = urljoin(self.url, "api/orgs")
+        response = requests.get(url, headers=self.settings.headers)
+        if not response.ok:
+            raise ValueError(response.reason)
+        return response.json()['orgs']
+
+    @property
+    def primary_org(self) -> Dict[str, Any]:
+        orgs = self.orgs
+        primary_org = None
+        for o in orgs:
+            if o['is_primary']:
+                primary_org = o
+        if primary_org:
+            return primary_org
+        raise ValueError("primary organization not found")
+
+    def upload_source(self, local_path: str, saturn_resource_path: str = None) -> str:
+        """
+        This method uploads a local_path to some location in sfs, which in the future
+        will be downloaded to saturn_resource_path
+        """
+        username = self.current_user['username']
+        org_name = self.primary_org['name']
+        sfs_path = f"sfs://{org_name}/{username}{saturn_resource_path}"
+        fs = SaturnFS()
+        operation = file_op(True, False)
+        callback = FileOpCallback(operation=operation)
+        fs.put(
+            local_path,
+            path,
+            recursive=True,
+            callback=callback
+        )
+        return sfs_path
 
     @property
     def current_user(self):

@@ -74,11 +74,34 @@ def logs(resource_type: str, name: str, rank: Optional[int] = 0, owner: str = No
 @cli.command()
 @click.argument("input-file")
 @click.option("--start", is_flag=True)
-def apply(input_file: str, start: bool = False):
+@click.option("--sync", multiple=True, default=[])
+def apply(input_file: str, start: bool = False, sync: List[str] = []):
     with open(input_file, "r") as f:
         yaml = YAML()
         obj = yaml.load(f)
+
     client = SaturnConnection()
+    settings = client.settings
+    working_directory = recipe['spec'].get('working_directory', settings.WORKING_DIRECTORY)
+    commands = []
+    START_STRING = "### BEGIN SATURN_CLIENT GENERATED CODE"
+    END_STRING = "### BEGIN SATURN_CLIENT GENERATED CODE"
+    for s in sync:
+        source, dest = s.split(':')
+        if not dest.startswith("/"):
+            dest = join(working_directory, dest)
+        sfs_path = client.upload_source(source, dest)
+        cmd = f"saturnfs cp --recursive {sfs_path} {dest}"
+        commands.append(cmd)
+    start_script = obj['spec'].get('start_script', "")
+    starting_index = start_script.find(START_STRING)
+    ending_index = start_script.find(END_STRING)
+    if starting_index >= 0 and ending_index >= 0:
+        start_script = start_script[:starting_index] + \
+                       start_script[ending_index + len(END_STRING) + 1:]
+    to_inject = [START_STRING] + commands + [END_STRING]
+    start_script = "\n".join(to_inject) + start_script
+    obj['spec']['start_script'] = start_script
     result = client.apply(obj)
     if start:
         resource_type = ResourceType.lookup(result['type'])
