@@ -249,18 +249,12 @@ class SaturnConnection:
         return response.json()
 
     def list_deployments(self, owner_name: str = None) -> List[Any]:
-        if owner_name is None:
-            owner_name = self.current_user["username"]
         return self._get_recipes(ResourceType.DEPLOYMENT, owner_name=owner_name)
 
     def list_jobs(self, owner_name: str = None) -> List[Any]:
-        if owner_name is None:
-            owner_name = self.current_user["username"]
         return self._get_recipes(ResourceType.JOB, owner_name=owner_name)
 
     def list_workspaces(self, owner_name: str = None) -> List[Any]:
-        if owner_name is None:
-            owner_name = self.current_user["username"]
         return self._get_recipes(ResourceType.WORKSPACE, owner_name=owner_name)
 
     def _get_resource_by_name(self, resource_type: str, resource_name: str, owner_name: str = None):
