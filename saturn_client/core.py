@@ -49,15 +49,11 @@ class ResourceType:
     """Enum for resource_type
 
     All resource models should return one of these as resource.resource_type.
-
-    This currently does not match the resource types in Atlas, but it matches the API we want for users.
-
-    We also avoid using the Enum module to minimize dependencies
     """
 
-    DEPLOYMENT = "Deployment"
-    JOB = "Job"
-    WORKSPACE = "Workspace"
+    DEPLOYMENT = "deployment"
+    JOB = "job"
+    WORKSPACE = "workspace"
 
     @classmethod
     def possible_resource_types(cls) -> str:
@@ -69,24 +65,14 @@ class ResourceType:
         converts from the name of the resource type to the string we use in the urls. Currently
         this is just the lower case value + plural.
         """
-        return cls.get_api_name(resource_type) + "s"
-
-    @classmethod
-    def get_api_name(cls, resource_type: str) -> str:
-        """
-        converts from the name of the resource type to the string we use in the API. Currently
-        this is just the lower case value.
-        """
-        if resource_type not in cls.possible_resource_types():
-            raise SaturnError(f"Invalid resource type {resource_type}")
-        return resource_type.lower()
+        return cls.lookup(resource_type) + "s"
 
     @classmethod
     def lookup(cls, input: str):
         for resource_type in cls.possible_resource_types():
-            if resource_type.lower() == input.lower():
+            if resource_type == input.lower():
                 return resource_type
-        raise SaturnError(f"resource type {input} not found")
+        raise SaturnError(f'resource type "{input}" not found')
 
 
 @dataclass
