@@ -205,31 +205,48 @@ class SaturnConnection:
         self,
         resource_type: str,
         resource_name: Optional[str] = None,
-        owner_name: str = None,
+        owner_name: Optional[str] = None,
         max_count=10,
     ) -> List[Any]:
         next_last_key = None
         recipes = []
-        if owner_name is None:
-            owner_name = self.current_user["username"]
-        resource_type = ResourceType.get_api_name(resource_type)
+        resource_type = ResourceType.lookup(resource_type)
+        qparams = {"type": resource_type, "max_count": max_count}
+        if owner_name:
+            qparams["owner_name"] = owner_name
+        if resource_name:
+            qparams["name"] = resource_name
+        url = urljoin(self.url, "api/recipes")
         while True:
-            url = urljoin(self.url, f"api/recipes")
-            qparams = {"type": resource_type, "owner_name": owner_name, "max_count": max_count}
-            if resource_name:
-                qparams["name"] = resource_name
-            if next_last_key:
-                qparams["last_key"] = next_last_key
             url = url + "?" + urlencode(qparams)
             response = requests.get(url, headers=self.settings.headers)
             if not response.ok:
-                raise SaturnHTTPError(response.reason, status_code=response.status_code)
+                raise SaturnHTTPError.from_response(response)
             data = response.json()
             recipes.extend(data["recipes"])
             next_last_key = data.get("next_last_key", None)
             if next_last_key is None:
                 break
+            qparams["last_key"] = next_last_key
         return recipes
+
+    def _get_recipe_single(
+        self,
+        resource_type: str,
+        resource_name: str,
+        owner_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        resource_type = ResourceType.lookup(resource_type)
+        url = urljoin(self.url, f"api/recipes/{resource_type}/{resource_name}")
+        qparams = {}
+        if owner_name:
+            qparams["owner_name"] = owner_name
+        url = url + "?" + urlencode(qparams)
+
+        response = requests.get(url, headers=self.settings.headers)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        return response.json()
 
     def list_deployments(self, owner_name: str = None) -> List[Any]:
         if owner_name is None:
@@ -247,15 +264,9 @@ class SaturnConnection:
         return self._get_recipes(ResourceType.WORKSPACE, owner_name=owner_name)
 
     def _get_resource_by_name(self, resource_type: str, resource_name: str, owner_name: str = None):
-        """
-        Currently - no way to query resource by name
-        """
-        recipes = self._get_recipes(
-            resource_type, resource_name=resource_name, owner_name=owner_name
+        return self._get_recipe_single(
+            resource_type, resource_name, owner_name=owner_name
         )
-        if len(recipes) == 0:
-            raise SaturnError(f"Resource not found {owner_name}/{resource_name}")
-        return recipes[0]
 
     def get_pods(
         self, resource_type: str, resource_name: str, owner_name: str = None
