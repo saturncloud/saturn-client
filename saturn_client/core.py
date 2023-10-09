@@ -3,6 +3,7 @@
 NOTE: This is an experimental library and will likely change in
 the future
 """
+from json import JSONDecodeError
 import logging
 import datetime as dt
 from dataclasses import dataclass
@@ -12,7 +13,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urljoin, urlencode
 
 import requests
-from requests.exceptions import HTTPError
 from .settings import Settings
 
 
@@ -35,6 +35,14 @@ class SaturnHTTPError(SaturnError):
     def __init__(self, message, status_code):
         super().__init__(message)
         self.status_code = status_code
+
+    @classmethod
+    def from_response(cls, response: requests.Response):
+        try:
+            error = response.json()
+        except JSONDecodeError:
+            error = response.reason
+        return cls(error, response.status_code)
 
 
 class ResourceType:
@@ -179,7 +187,7 @@ class SaturnConnection:
         url = urljoin(self.url, "api/status")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
+            raise SaturnHTTPError.from_response(response)
         return response.json()["version"]
 
     @property
@@ -189,7 +197,7 @@ class SaturnConnection:
             url = urljoin(self.url, "api/info/servers")
             response = requests.get(url, headers=self.settings.headers)
             if not response.ok:
-                raise SaturnHTTPError(response.reason, status_code=response.status_code)
+                raise SaturnHTTPError.from_response(response)
             self._options = response.json()
         return self._options
 
@@ -267,7 +275,7 @@ class SaturnConnection:
         url = urljoin(self.url, f"api/{api_name}/{resource_id}/history")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
+            raise SaturnHTTPError.from_response(response)
         result = response.json()["pods"]
         for p in result:
             p["source"] = "historical"
@@ -279,7 +287,7 @@ class SaturnConnection:
         url = urljoin(self.url, f"api/{api_name}/{resource_id}/runtimesummary")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
+            raise SaturnHTTPError.from_response(response)
         result = response.json()
         live_pods = []
         if "job_summaries" in result:
@@ -313,7 +321,7 @@ class SaturnConnection:
         url = urljoin(self.url, f"api/pod/namespace/main-namespace/name/{pod_name}/runtimesummary")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
+            raise SaturnHTTPError.from_response(response)
         result = response.json()
         init_previous = [
             x["previous"]["logs"] for x in result["init_container_summaries"] if x["previous"]
@@ -338,7 +346,7 @@ class SaturnConnection:
         url = urljoin(self.url, f"api/{api_name}/{resource_id}/logs?pod_name={pod_name}")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
+            raise SaturnHTTPError.from_response(response)
         result = response.json()
         return result["logs"]
 
@@ -438,7 +446,7 @@ class SaturnConnection:
         url = urljoin(self.url, "api/recipes")
         response = requests.put(url, headers=self.settings.headers, json=recipe_dict)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
+            raise SaturnHTTPError.from_response(response)
         result = response.json()
         return result
 
@@ -447,27 +455,7 @@ class SaturnConnection:
         url = urljoin(self.url, f"api/{url_name}/{resource_id}/start")
         response = requests.post(url, headers=self.settings.headers)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
+            raise SaturnHTTPError.from_response(response)
         result = response.json()
         return result
 
-
-
-def _maybe_name(_id):
-    """Return message if len of id does not match expectation (32)"""
-    if len(_id) == 32:
-        return ""
-    return "Maybe you used name rather than id?"
-
-
-def _http_error(response: requests.Response, resource_id: str):
-    """Return HTTPError from response for a resource"""
-    response_message = response.json().get(
-        "message", "saturn-client encountered an unexpected error."
-    )
-    return HTTPError(response.status_code, f"{response_message} {_maybe_name(resource_id)}")
-
-
-if __name__ == "__main__":
-    client = SaturnConnection()
-    print(client.list_workspaces())
