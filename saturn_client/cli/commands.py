@@ -20,11 +20,11 @@ def list(resource_type: str, owner: str = None):
     resource_type = ResourceType.lookup(resource_type)
     resources = []
     if resource_type == ResourceType.WORKSPACE:
-        resources = client.list_workspaces()
+        resources = client.list_workspaces(owner)
     if resource_type == ResourceType.JOB:
-        resources = client.list_jobs()
+        resources = client.list_jobs(owner)
     if resource_type == ResourceType.DEPLOYMENT:
-        resources = client.list_deployments()
+        resources = client.list_deployments(owner)
     print_resource_table(resources)
 
 
