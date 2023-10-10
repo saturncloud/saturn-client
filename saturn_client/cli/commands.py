@@ -12,7 +12,7 @@ def cli():
 
 
 @cli.command()
-@click.argument("resource_type")
+@click.argument("resource_type", default=None, required=False)
 @click.argument("resource_name", default=None, required=False)
 @click.option(
     "--owner",
@@ -20,14 +20,17 @@ def cli():
     required=False,
     help="Resource owner name. Defaults to current auth identity.",
 )
-def list(resource_type: str, resource_name: Optional[str] = None, owner: str = None):
+def list(resource_type: Optional[str], resource_name: Optional[str] = None, owner: str = None):
     """
     List resources belonging to an owner. Resources are prefix
     matched against RESOURCE_NAME, if set.
+    Pass "all" into RESOURCE_NAME to list unfiltered by type (default)
 
     Resource Types: [workspace, deployment, job]
     """
     client = SaturnConnection()
+    if resource_type == "all":
+        resource_type = None
     resources = client.list_recipes(resource_type, resource_name=resource_name, owner_name=owner)
     print_resource_table(resources)
 

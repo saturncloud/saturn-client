@@ -195,14 +195,16 @@ class SaturnConnection:
 
     def list_recipes(
         self,
-        resource_type: str,
+        resource_type: Optional[str] = None,
         resource_name: Optional[str] = None,
         owner_name: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         next_last_key = None
         recipes = []
-        resource_type = ResourceType.lookup(resource_type)
-        qparams = {"type": resource_type}
+        qparams = {}
+        if resource_type is not None:
+            resource_type = ResourceType.lookup(resource_type)
+            qparams["type"] = resource_type
         if owner_name:
             qparams["owner_name"] = owner_name
         if resource_name:
