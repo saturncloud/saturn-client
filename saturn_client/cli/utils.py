@@ -33,8 +33,6 @@ def print_resource_table(
     headers = ["owner", "name", "resource_type", "status", "instance_type", "instance_count", "id"]
     data: List[List[str]] = []
     for recipe in results:
-        import pprint
-
         spec = recipe["spec"]
         state = recipe["state"]
         id = state["id"]

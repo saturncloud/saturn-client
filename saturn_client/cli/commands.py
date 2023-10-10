@@ -42,32 +42,11 @@ def pods(resource_type: str, name: str, owner: str = None):
 @cli.command()
 @click.argument("resource_type")
 @click.argument("name")
-@click.argument("pod_name")
+@click.argument("pod_name", default=None, required=False)
 @click.option("--owner", default=None, required=False)
-def pod_logs(resource_type: str, name: str, pod_name: str, owner: str = None):
+def logs(resource_type: str, name: str, owner: str = None, pod_name: str = None):
     client = SaturnConnection()
-    resource_type = ResourceType.lookup(resource_type)
-    logs = client.get_pod_logs(resource_type, name, pod_name, owner_name=owner)
-    click.echo(logs)
-
-
-@cli.command()
-@click.argument("resource_type")
-@click.argument("name")
-@click.option("--rank", default=0, required=False)
-@click.option("--owner", default=None, required=False)
-def logs(resource_type: str, name: str, rank: Optional[int] = 0, owner: str = None):
-    client = SaturnConnection()
-    resource_type = ResourceType.lookup(resource_type)
-    if resource_type == ResourceType.WORKSPACE:
-        logs, pod = client.get_workspace_logs(name, owner)
-    elif resource_type == ResourceType.JOB:
-        logs, pod = client.get_job_logs(name, owner, rank=rank)
-    else:
-        logs, pod = client.get_deployment_logs(name, owner, rank=rank)
-
-    click.echo(f"logs for {pod['pod_name']}")
-    click.echo("-" * 100)
+    logs = client.get_logs(resource_type, name, owner_name=owner, pod_name=pod_name)
     click.echo(logs)
 
 
@@ -89,4 +68,4 @@ def apply(input_file: str, start: bool = False):
 
 
 if __name__ == "__main__":
-    cli()
+    cli(max_content_width=100)
