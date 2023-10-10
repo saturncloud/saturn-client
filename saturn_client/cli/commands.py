@@ -82,8 +82,8 @@ def apply(input_file: str, start: bool = False):
     client = SaturnConnection()
     result = client.apply(obj)
     if start:
-        resource_type = ResourceType.lookup(result['type'])
-        resource_id = result['state']['id']
+        resource_type = ResourceType.lookup(result["type"])
+        resource_id = result["state"]["id"]
         client._start(resource_type, resource_id)
 
 

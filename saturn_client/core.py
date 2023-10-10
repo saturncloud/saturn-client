@@ -8,12 +8,12 @@ import logging
 import datetime as dt
 from dataclasses import dataclass
 from functools import reduce
-
+import requests
 from typing import Any, Dict, List, Optional, Set, Union
 from urllib.parse import urljoin, urlencode
 
-import requests
-from .settings import Settings
+from saturn_client.settings import Settings
+from saturn_client.logs import format_historical_logs, format_logs, is_live
 
 
 log = logging.getLogger("saturn-client")
@@ -245,48 +245,70 @@ class SaturnConnection:
             raise SaturnHTTPError.from_response(response)
         return response.json()
 
-    def get_logs(self, resource_type: str, resource_name: str, owner_name: Optional[str] = None, pod_name: Optional[str] = None) -> str:
+    def get_logs(
+        self,
+        resource_type: str,
+        resource_name: str,
+        owner_name: Optional[str] = None,
+        pod_name: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        all_containers: bool = False,
+    ) -> str:
         resource_type = ResourceType.lookup(resource_type)
-        resource = self._get_recipe_by_name(resource_type, resource_name, owner_name=owner_name)
-        resource_id = resource["state"]["id"]
-        logs: str = ""
-        if pod_name:
-            try:
-                runtime_summary = self._get_pod_runtime_summary(
-                    pod_name,
-                )
-                pod_resource_id = runtime_summary.get("labels", {}).get("saturncloud.io/resource-id")
-                if pod_resource_id != resource_id:
-                    raise ValueError(f"Unable to find matching pod for {resource_type} {resource_name} with name {pod_name}")
-                logs = self._format_logs(runtime_summary)
-            except SaturnHTTPError as e:
-                if e.status_code == 404:
-                    logs = self._get_historical_pod_logs(resource_type, resource_id, pod_name)
-                else:
-                    raise e
-        else:
-            pods = self._get_live_pods(resource_type, resource_id)
-            if len(pods) > 0:
-                pod_name = pods[0]["pod_name"]
-                return self.get_logs(resource_type, resource_name, owner_name=owner_name, pod_name=pod_name)
-            else:
-                historical_pods = self._get_historical_pods(resource_type, resource_id)
-                if len(historical_pods) > 0:
-                    pod_name = historical_pods[0]["pod_name"]
-                    logs = self._get_historical_pod_logs(resource_type, resource_id, pod_name)
+        if not resource_id:
+            resource = self._get_recipe_by_name(resource_type, resource_name, owner_name=owner_name)
+            resource_id = resource["state"]["id"]
 
-        if pod_name and logs:
-            line_break = "=" * 100
-            logs = f"Pod: {pod_name}\n{line_break}\n{logs}"
-        return logs
+        if pod_name:
+            pod_summary = self._get_pod_runtime_summary(
+                pod_name, resource_id=resource_id
+            )
+            if is_live(pod_summary):
+                return format_logs(pod_summary, all_containers=all_containers)
+            return self._get_historical_pod_logs(resource_type, resource_id, pod_name)
+
+        # Search for latest pod
+        pods = self._get_live_pods(resource_type, resource_id)
+        if len(pods) > 0:
+            pod_name = pods[0]["pod_name"]
+            return self.get_logs(
+                resource_type,
+                resource_name,
+                owner_name=owner_name,
+                pod_name=pod_name,
+                resource_id=resource_id,
+            )
+
+        historical_pods = self._get_historical_pods(resource_type, resource_id)
+        if len(historical_pods) > 0:
+            pod_name = historical_pods[0]["pod_name"]
+            return self._get_historical_pod_logs(resource_type, resource_id, pod_name)
+        return ""
+
+    def _get_live_pod_logs(
+        self, pod_name: str, resource_id: Optional[str] = None, all_containers: bool = False
+    ) -> str:
+        pod_summary = self._get_pod_runtime_summary(
+            pod_name, resource_id=resource_id
+        )
+        return format_logs(pod_summary, all_containers=all_containers)
+
+    def _get_historical_pod_logs(self, resource_type: str, resource_id: str, pod_name: str) -> str:
+        api_name = ResourceType.get_url_name(resource_type)
+        url = urljoin(self.url, f"api/{api_name}/{resource_id}/logs?pod_name={pod_name}")
+        response = requests.get(url, headers=self.settings.headers)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        result = response.json()
+        return format_historical_logs(pod_name, result["logs"])
 
     def get_pods(
         self, resource_type: str, resource_name: str, owner_name: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         resource = self._get_recipe_by_name(resource_type, resource_name, owner_name)
-        return self._get_pods(resource_type, resource["state"]["id"])
+        return self._get_all_pods(resource_type, resource["state"]["id"])
 
-    def _get_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
+    def _get_all_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
         historical_pods = self._get_historical_pods(resource_type, resource_id)
         live_pods = self._get_live_pods(resource_type, resource_id)
         live_pod_names = set(x["pod_name"] for x in live_pods)
@@ -340,50 +362,20 @@ class SaturnConnection:
         live_pods = sorted(live_pods, key=lambda x: (x["start_time"], x["pod_name"]), reverse=True)
         return live_pods
 
-    def _format_logs(self, pod_runtime_summary: Dict[str, Any], all_containers: bool = False) -> str:
-        containers: List[Dict[str, Any]] = []
-        if all_containers:
-            containers.extend(pod_runtime_summary["init_container_summaries"])
-            containers.extend(pod_runtime_summary["container_summaries"])
-        else:
-            # Select only the main container
-            for container in pod_runtime_summary["container_summaries"]:
-                if container["name"] == "main":
-                    containers = [container]
-                    break
-
-        container_logs = []
-        line_break = "-" * 100
-        for container in containers:
-            if "previous" in container and container["previous"]:
-                container_logs.append(
-                    f"Container: {container['previous']['name']} (previous)\n{line_break}"
-                    f"\n{container['previous']['logs']}"
-                )
-            container_logs.append(
-                f"Container: {container['name']}\n{line_break}"
-                f"\n{container['logs']}"
-            )
-
-        return "\n\n".join(container_logs)
-
-    def _get_pod_runtime_summary(self, pod_name: str) -> Dict[str, Any]:
+    def _get_pod_runtime_summary(self, pod_name: str, resource_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         url = urljoin(self.url, f"api/pod/namespace/main-namespace/name/{pod_name}/runtimesummary")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
+            if response.status_code == 404:
+                return None
             raise SaturnHTTPError.from_response(response)
-        return response.json()
+        pod_summary = response.json()
 
-    def _get_historical_pod_logs(self, resource_type: str, resource_id: str, pod_name: str) -> str:
-        api_name = ResourceType.get_url_name(resource_type)
-        url = urljoin(self.url, f"api/{api_name}/{resource_id}/logs?pod_name={pod_name}")
-        response = requests.get(url, headers=self.settings.headers)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
-        result = response.json()
-        logs = result["logs"]
-        line_break = "-" * 100
-        return f"Historical\n{line_break}\n{logs}"
+        pod_resource_id = pod_summary.get("labels", {}).get("saturncloud.io/resource-id")
+        if resource_id and pod_resource_id != resource_id:
+            # Validate the pod is for the correct resource
+            raise ValueError(f"Unable to find pod '{pod_name}' matching this resource")
+        return pod_summary
 
     def apply(self, recipe_dict: Dict[str, Any]) -> Dict[str, Any]:
         url = urljoin(self.url, "api/recipes")
@@ -401,4 +393,3 @@ class SaturnConnection:
             raise SaturnHTTPError.from_response(response)
         result = response.json()
         return result
-
