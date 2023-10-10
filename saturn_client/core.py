@@ -9,7 +9,7 @@ import datetime as dt
 from dataclasses import dataclass
 from functools import reduce
 import requests
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urljoin, urlencode
 
 from saturn_client.settings import Settings
@@ -56,8 +56,8 @@ class ResourceType:
     WORKSPACE = "workspace"
 
     @classmethod
-    def possible_resource_types(cls) -> Set[str]:
-        return {cls.DEPLOYMENT, cls.JOB, cls.WORKSPACE}
+    def values(cls) -> List[str]:
+        return [cls.DEPLOYMENT, cls.JOB, cls.WORKSPACE]
 
     @classmethod
     def get_url_name(cls, resource_type: str) -> str:
@@ -69,7 +69,7 @@ class ResourceType:
 
     @classmethod
     def lookup(cls, input: str):
-        types = cls.possible_resource_types()
+        types = set(cls.values())
         resource_type = input.lower()
         if resource_type in types:
             return resource_type
@@ -79,6 +79,22 @@ class ResourceType:
             if resource_type in types:
                 return resource_type
         raise SaturnError(f'resource type "{input}" not found')
+
+
+class ResourceStatus:
+    """
+    Enum for resource statuses
+    """
+
+    PENDING = "pending"
+    RUNNING = "running"
+    STOPPING = "stopping"
+    STOPPED = "stopped"
+    ERROR = "error"
+
+    @classmethod
+    def values(cls) -> List[str]:
+        return [cls.PENDING, cls.RUNNING, cls.STOPPING, cls.STOPPED, cls.ERROR]
 
 
 @dataclass
@@ -193,11 +209,12 @@ class SaturnConnection:
             self._options = response.json()
         return self._options
 
-    def list_recipes(
+    def list_resources(
         self,
         resource_type: Optional[str] = None,
         resource_name: Optional[str] = None,
         owner_name: Optional[str] = None,
+        status: Optional[Union[str, Iterable[str]]] = None,
     ) -> List[Dict[str, Any]]:
         next_last_key = None
         recipes = []
@@ -221,16 +238,23 @@ class SaturnConnection:
             if next_last_key is None:
                 break
             qparams["last_key"] = next_last_key
+
+        if status:
+            if isinstance(status, str):
+                status = {status}
+            elif not isinstance(status, set):
+                status = set(status)
+            recipes = [r for r in recipes if r.get("state", {}).get("status") in status]
         return recipes
 
     def list_deployments(self, owner_name: str = None, **kwargs) -> List[Dict[str, Any]]:
-        return self.list_recipes(ResourceType.DEPLOYMENT, owner_name=owner_name, **kwargs)
+        return self.list_resources(ResourceType.DEPLOYMENT, owner_name=owner_name, **kwargs)
 
     def list_jobs(self, owner_name: str = None, **kwargs) -> List[Dict[str, Any]]:
-        return self.list_recipes(ResourceType.JOB, owner_name=owner_name, **kwargs)
+        return self.list_resources(ResourceType.JOB, owner_name=owner_name, **kwargs)
 
     def list_workspaces(self, owner_name: str = None, **kwargs) -> List[Dict[str, Any]]:
-        return self.list_recipes(ResourceType.WORKSPACE, owner_name=owner_name, **kwargs)
+        return self.list_resources(ResourceType.WORKSPACE, owner_name=owner_name, **kwargs)
 
     def _get_recipe_by_name(
         self, resource_type: str, resource_name: str, owner_name: str = None
@@ -301,17 +325,34 @@ class SaturnConnection:
         return format_historical_logs(pod_name, result["logs"])
 
     def get_pods(
-        self, resource_type: str, resource_name: str, owner_name: Optional[str] = None
+        self,
+        resource_type: str,
+        resource_name: str,
+        owner_name: Optional[str] = None,
+        status: Optional[Union[str, Iterable[str]]] = None,
     ) -> List[Dict[str, Any]]:
         resource = self._get_recipe_by_name(resource_type, resource_name, owner_name)
-        return self._get_all_pods(resource_type, resource["state"]["id"])
+        return self._get_all_pods(resource_type, resource["state"]["id"], status=status)
 
-    def _get_all_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
+    def _get_all_pods(
+        self,
+        resource_type: str,
+        resource_id: str,
+        status: Optional[Union[str, Iterable[str]]] = None,
+    ) -> List[Dict[str, Any]]:
         historical_pods = self._get_historical_pods(resource_type, resource_id)
         live_pods = self._get_live_pods(resource_type, resource_id)
         live_pod_names = set(x["pod_name"] for x in live_pods)
         historical_pods = [x for x in historical_pods if x["pod_name"] not in live_pod_names]
-        return live_pods + historical_pods
+        pods = live_pods + historical_pods
+
+        if status:
+            if isinstance(status, str):
+                status = {status}
+            elif not isinstance(status, set):
+                status = set(status)
+            pods = [p for p in pods if p.get("status") in status]
+        return pods
 
     def _get_historical_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
         api_name = ResourceType.get_url_name(resource_type)

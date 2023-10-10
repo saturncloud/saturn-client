@@ -1,9 +1,9 @@
-from typing import Optional
+from typing import List, Optional
 from ruamel.yaml import YAML
 import click
 
 from saturn_client.cli.utils import print_resource_table, print_pod_table
-from saturn_client.core import SaturnConnection, ResourceType
+from saturn_client.core import ResourceStatus, SaturnConnection, ResourceType
 
 
 @click.group()
@@ -20,7 +20,20 @@ def cli():
     required=False,
     help="Resource owner name. Defaults to current auth identity.",
 )
-def resources(resource_type: Optional[str], resource_name: Optional[str] = None, owner: str = None):
+@click.option(
+    "-s",
+    "--status",
+    required=False,
+    multiple=True,
+    type=click.Choice(ResourceStatus.values()),
+    help="Filter resource status by one or more value",
+)
+def resources(
+    resource_type: Optional[str],
+    resource_name: Optional[str] = None,
+    owner: Optional[str] = None,
+    status: Optional[List[str]] = None,
+):
     """
     List resources belonging to an owner.
 
@@ -34,7 +47,9 @@ def resources(resource_type: Optional[str], resource_name: Optional[str] = None,
     client = SaturnConnection()
     if resource_type == "all":
         resource_type = None
-    resources = client.list_recipes(resource_type, resource_name=resource_name, owner_name=owner)
+    resources = client.list_resources(
+        resource_type, resource_name=resource_name, owner_name=owner, status=status
+    )
     print_resource_table(resources)
 
 
@@ -42,7 +57,17 @@ def resources(resource_type: Optional[str], resource_name: Optional[str] = None,
 @click.argument("resource_type")
 @click.argument("resource_name")
 @click.option("--owner", default=None, required=False)
-def pods(resource_type: str, resource_name: str, owner: str = None):
+@click.option(
+    "-s",
+    "--status",
+    required=False,
+    multiple=True,
+    type=click.Choice(ResourceStatus.values()),
+    help="Filter pod status by one or more value",
+)
+def pods(
+    resource_type: str, resource_name: str, owner: str = None, status: Optional[List[str]] = None
+):
     """
     List active pods associated with a resource.
 
@@ -54,7 +79,7 @@ def pods(resource_type: str, resource_name: str, owner: str = None):
     """
     client = SaturnConnection()
     resource_type = ResourceType.lookup(resource_type)
-    pods = client.get_pods(resource_type, resource_name, owner)
+    pods = client.get_pods(resource_type, resource_name, owner_name=owner, status=status)
     print_pod_table(pods)
 
 
@@ -109,7 +134,9 @@ def logs(
 
 @cli.command()
 @click.argument("input-file")
-@click.option("--start", is_flag=True, help="Start the resource after creating/updating it with the recipe")
+@click.option(
+    "--start", is_flag=True, help="Start the resource after creating/updating it with the recipe"
+)
 def apply(input_file: str, start: bool = False):
     """
     Create or update the contents of a resource recipe.
