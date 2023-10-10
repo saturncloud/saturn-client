@@ -3,9 +3,7 @@ from typing import Any, Dict, List, Optional
 
 def format_logs(pod_summary: Dict[str, Any], all_containers: bool = False) -> str:
     containers: List[Dict[str, Any]] = []
-    init_container_summaries: List[Dict[str, Any]] = pod_summary.get(
-        "init_container_summaries", []
-    )
+    init_container_summaries: List[Dict[str, Any]] = pod_summary.get("init_container_summaries", [])
     container_summaries: List[Dict[str, Any]] = pod_summary.get("container_summaries", [])
     if all_containers:
         containers.extend(init_container_summaries)
@@ -67,9 +65,7 @@ def format_container_logs(container_summary: Dict[str, Any], is_previous: bool =
     logs = container_summary["logs"]
     if not logs:
         logs = f"Status: {container_summary['status']}"
-    logs = _section_header(
-        f"Container: {container_summary['name']}{label}", logs, char="-"
-    )
+    logs = _section_header(f"Container: {container_summary['name']}{label}", logs, char="-")
     finished_at = container_summary.get("finished_at")
     if finished_at:
         finished_at = container_summary["finished_at"]
@@ -83,7 +79,9 @@ def format_historical_logs(pod_name: str, logs: str) -> str:
     return _section_header(f"Pod: {pod_name}", logs)
 
 
-def _format_terminated(logs: str, end_time: str, exit_code: Optional[int] = None, width: int = 100) -> str:
+def _format_terminated(
+    logs: str, end_time: str, exit_code: Optional[int] = None, width: int = 100
+) -> str:
     info = ""
     if exit_code is not None:
         info = f"{exit_code} "

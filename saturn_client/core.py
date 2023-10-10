@@ -262,9 +262,7 @@ class SaturnConnection:
             resource_id = resource["state"]["id"]
 
         if pod_name:
-            pod_summary = self._get_pod_runtime_summary(
-                pod_name, resource_id=resource_id
-            )
+            pod_summary = self._get_pod_runtime_summary(pod_name, resource_id=resource_id)
             if is_live(pod_summary):
                 return format_logs(pod_summary, all_containers=all_containers)
             return self._get_historical_pod_logs(resource_type, resource_id, pod_name)
@@ -290,9 +288,7 @@ class SaturnConnection:
     def _get_live_pod_logs(
         self, pod_name: str, resource_id: Optional[str] = None, all_containers: bool = False
     ) -> str:
-        pod_summary = self._get_pod_runtime_summary(
-            pod_name, resource_id=resource_id
-        )
+        pod_summary = self._get_pod_runtime_summary(pod_name, resource_id=resource_id)
         return format_logs(pod_summary, all_containers=all_containers)
 
     def _get_historical_pod_logs(self, resource_type: str, resource_id: str, pod_name: str) -> str:
@@ -364,7 +360,9 @@ class SaturnConnection:
         live_pods = sorted(live_pods, key=lambda x: (x["start_time"], x["pod_name"]), reverse=True)
         return live_pods
 
-    def _get_pod_runtime_summary(self, pod_name: str, resource_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def _get_pod_runtime_summary(
+        self, pod_name: str, resource_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         url = urljoin(self.url, f"api/pod/namespace/main-namespace/name/{pod_name}/runtimesummary")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
