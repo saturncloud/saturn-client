@@ -1,3 +1,4 @@
+from typing import Optional
 from ruamel.yaml import YAML
 import click
 
@@ -12,27 +13,22 @@ def cli():
 
 @cli.command()
 @click.argument("resource_type")
+@click.argument("resource_name", default=None, required=False)
 @click.option(
     "--owner",
     default=None,
     required=False,
     help="Resource owner name. Defaults to current auth identity.",
 )
-def list(resource_type: str, owner: str = None):
+def list(resource_type: str, resource_name: Optional[str] = None, owner: str = None):
     """
-    List resources belonging to an owner.
+    List resources belonging to an owner. Resources are prefix
+    matched against RESOURCE_NAME, if set.
 
     Resource Types: [workspace, deployment, job]
     """
     client = SaturnConnection()
-    resource_type = ResourceType.lookup(resource_type)
-    resources = []
-    if resource_type == ResourceType.WORKSPACE:
-        resources = client.list_workspaces(owner)
-    if resource_type == ResourceType.JOB:
-        resources = client.list_jobs(owner)
-    if resource_type == ResourceType.DEPLOYMENT:
-        resources = client.list_deployments(owner)
+    resources = client.list_recipes(resource_type, resource_name=resource_name, owner_name=owner)
     print_resource_table(resources)
 
 

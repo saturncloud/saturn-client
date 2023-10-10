@@ -193,24 +193,23 @@ class SaturnConnection:
             self._options = response.json()
         return self._options
 
-    def _get_recipes(
+    def list_recipes(
         self,
         resource_type: str,
         resource_name: Optional[str] = None,
         owner_name: Optional[str] = None,
-        max_count=10,
     ) -> List[Dict[str, Any]]:
         next_last_key = None
         recipes = []
         resource_type = ResourceType.lookup(resource_type)
-        qparams = {"type": resource_type, "max_count": max_count}
+        qparams = {"type": resource_type}
         if owner_name:
             qparams["owner_name"] = owner_name
         if resource_name:
             qparams["name"] = resource_name
-        url = urljoin(self.url, "api/recipes")
+        base_url = urljoin(self.url, "api/recipes")
         while True:
-            url = url + "?" + urlencode(qparams)
+            url = base_url + "?" + urlencode(qparams)
             response = requests.get(url, headers=self.settings.headers)
             if not response.ok:
                 raise SaturnHTTPError.from_response(response)
@@ -222,14 +221,14 @@ class SaturnConnection:
             qparams["last_key"] = next_last_key
         return recipes
 
-    def list_deployments(self, owner_name: str = None) -> List[Dict[str, Any]]:
-        return self._get_recipes(ResourceType.DEPLOYMENT, owner_name=owner_name)
+    def list_deployments(self, owner_name: str = None, **kwargs) -> List[Dict[str, Any]]:
+        return self.list_recipes(ResourceType.DEPLOYMENT, owner_name=owner_name, **kwargs)
 
-    def list_jobs(self, owner_name: str = None) -> List[Dict[str, Any]]:
-        return self._get_recipes(ResourceType.JOB, owner_name=owner_name)
+    def list_jobs(self, owner_name: str = None, **kwargs) -> List[Dict[str, Any]]:
+        return self.list_recipes(ResourceType.JOB, owner_name=owner_name, **kwargs)
 
-    def list_workspaces(self, owner_name: str = None) -> List[Dict[str, Any]]:
-        return self._get_recipes(ResourceType.WORKSPACE, owner_name=owner_name)
+    def list_workspaces(self, owner_name: str = None, **kwargs) -> List[Dict[str, Any]]:
+        return self.list_recipes(ResourceType.WORKSPACE, owner_name=owner_name, **kwargs)
 
     def _get_recipe_by_name(
         self, resource_type: str, resource_name: str, owner_name: str = None
