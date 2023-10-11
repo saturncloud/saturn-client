@@ -1,8 +1,10 @@
+import json
+import sys
 from typing import List, Optional
 from ruamel.yaml import YAML
 import click
 
-from saturn_client.cli.utils import print_resource_table, print_pod_table
+from saturn_client.cli.utils import OutputFormat, print_pod_table, print_resources
 from saturn_client.core import ResourceStatus, SaturnConnection, ResourceType
 
 
@@ -26,11 +28,19 @@ def cli():
     type=click.Choice(ResourceStatus.values()),
     help="Filter resource status by one or more value",
 )
+@click.option(
+    "-o",
+    "--output",
+    default="table",
+    type=click.Choice(OutputFormat.values(), case_sensitive=False),
+    help="Output format. Defaults to table."
+)
 def list(
     _type: Optional[str],
     name: Optional[str] = None,
     owner: Optional[str] = None,
     status: Optional[List[str]] = None,
+    output: str = OutputFormat.TABLE,
 ):
     """
     List objects in saturn.
@@ -48,8 +58,28 @@ def list(
     resources = client.list_resources(
         _type, resource_name=name, owner_name=owner, status=status
     )
-    print_resource_table(resources)
+    print_resources(resources, output=output)
 
+
+@cli.command()
+@click.argument("_type", metavar="TYPE", required=True)
+@click.argument("name", required=True)
+@click.option(
+    "--owner",
+    default=None,
+    help="Resource owner name. Defaults to current auth identity.",
+)
+@click.option(
+    "-o",
+    "--output",
+    default=OutputFormat.TABLE,
+    type=click.Choice(OutputFormat.values(), case_sensitive=False),
+    help="Output format. Defaults to table."
+)
+def get(_type: str, name: str, owner: Optional[str] = None, output: str = OutputFormat.TABLE):
+    client = SaturnConnection()
+    resource = client.get_resource(_type, name, owner_name=owner)
+    print_resources(resource, output=output)
 
 @cli.command()
 @click.argument("resource_type")

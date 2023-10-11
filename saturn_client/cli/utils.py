@@ -1,14 +1,16 @@
 import json
 from enum import Enum
-from glob import has_magic
+import sys
 from typing import Any, Dict, List, Optional, Union
 
 import click
+from ruamel.yaml import YAML
 
 
-class OutputFormats(str, Enum):
+class OutputFormat(str, Enum):
     TABLE = "table"
     JSON = "json"
+    YAML = "yaml"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -25,6 +27,23 @@ class OutputFormats(str, Enum):
 
 def print_json(data: Union[List, Dict]):
     click.echo(json.dumps(data, indent=2))
+
+
+def print_resources(resource: Union[List, Dict], output: str = OutputFormat.TABLE):
+    output = output.lower()
+    OutputFormat.validate(output)
+    if output == OutputFormat.TABLE:
+        if not isinstance(resource, list):
+            resource = [resource]
+        print_resource_table(resource)
+    elif output == OutputFormat.YAML:
+        yaml = YAML()
+        if isinstance(resource, list):
+            yaml.dump_all(resource, sys.stdout)
+        else:
+            yaml.dump(resource, sys.stdout)
+    else:
+        print_json(resource)
 
 
 def print_resource_table(

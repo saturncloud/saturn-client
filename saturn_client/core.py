@@ -247,16 +247,7 @@ class SaturnConnection:
             recipes = [r for r in recipes if r.get("state", {}).get("status") in status]
         return recipes
 
-    def list_deployments(self, owner_name: str = None, **kwargs) -> List[Dict[str, Any]]:
-        return self.list_resources(ResourceType.DEPLOYMENT, owner_name=owner_name, **kwargs)
-
-    def list_jobs(self, owner_name: str = None, **kwargs) -> List[Dict[str, Any]]:
-        return self.list_resources(ResourceType.JOB, owner_name=owner_name, **kwargs)
-
-    def list_workspaces(self, owner_name: str = None, **kwargs) -> List[Dict[str, Any]]:
-        return self.list_resources(ResourceType.WORKSPACE, owner_name=owner_name, **kwargs)
-
-    def _get_recipe_by_name(
+    def get_resource(
         self, resource_type: str, resource_name: str, owner_name: str = None
     ) -> Dict[str, Any]:
         resource_type = ResourceType.lookup(resource_type)
@@ -282,7 +273,7 @@ class SaturnConnection:
     ) -> str:
         resource_type = ResourceType.lookup(resource_type)
         if not resource_id:
-            resource = self._get_recipe_by_name(resource_type, resource_name, owner_name=owner_name)
+            resource = self.get_resource(resource_type, resource_name, owner_name=owner_name)
             resource_id = resource["state"]["id"]
 
         if pod_name:
@@ -331,7 +322,7 @@ class SaturnConnection:
         owner_name: Optional[str] = None,
         status: Optional[Union[str, Iterable[str]]] = None,
     ) -> List[Dict[str, Any]]:
-        resource = self._get_recipe_by_name(resource_type, resource_name, owner_name)
+        resource = self.get_resource(resource_type, resource_name, owner_name)
         return self._get_all_pods(resource_type, resource["state"]["id"], status=status)
 
     def _get_all_pods(
