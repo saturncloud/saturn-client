@@ -12,43 +12,41 @@ def cli():
 
 
 @cli.command()
-@click.argument("resource_type", default=None, required=False)
-@click.argument("resource_name", default=None, required=False)
+@click.argument("_type", metavar="TYPE", required=True)
+@click.argument("name", default=None, required=False)
 @click.option(
     "--owner",
     default=None,
-    required=False,
     help="Resource owner name. Defaults to current auth identity.",
 )
 @click.option(
     "-s",
     "--status",
-    required=False,
     multiple=True,
     type=click.Choice(ResourceStatus.values()),
     help="Filter resource status by one or more value",
 )
-def resources(
-    resource_type: Optional[str],
-    resource_name: Optional[str] = None,
+def list(
+    _type: Optional[str],
+    name: Optional[str] = None,
     owner: Optional[str] = None,
     status: Optional[List[str]] = None,
 ):
     """
-    List resources belonging to an owner.
+    List objects in saturn.
 
     \b
-    RESOURCE_TYPE (optional):
-        all: List resources of any type (Default)
+    TYPE (required):
+        resource: List any type of resource
         deployment, job, workspace: Filter for resources of a single type
-    RESOURCE_NAME (optional):
+    NAME (optional):
         Filter results by prefix match on name
     """
     client = SaturnConnection()
-    if resource_type == "all":
-        resource_type = None
+    if _type in {"resource", "resources"}:
+        _type = None
     resources = client.list_resources(
-        resource_type, resource_name=resource_name, owner_name=owner, status=status
+        _type, resource_name=name, owner_name=owner, status=status
     )
     print_resource_table(resources)
 
@@ -111,7 +109,7 @@ def logs(
     all_containers: bool = False,
 ):
     """
-    Print resource logs. Defaults to the most recently created pod if POD_NAME is not given.
+    Print logs for a given resource.
 
     \b
     RESOURCE_TYPE (required):
