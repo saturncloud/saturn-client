@@ -1,11 +1,10 @@
-import json
 import sys
 from typing import List, Optional
 from ruamel.yaml import YAML
 import click
 
 from saturn_client.cli.utils import OutputFormat, print_pod_table, print_resources
-from saturn_client.core import ResourceStatus, SaturnConnection, ResourceType
+from saturn_client.core import ResourceStatus, SaturnConnection, ResourceType, SaturnHTTPError
 
 
 @click.group()
@@ -185,4 +184,8 @@ def apply(input_file: str, start: bool = False):
 
 
 if __name__ == "__main__":
-    cli(max_content_width=100)
+    try:
+        cli(max_content_width=100)
+    except SaturnHTTPError as e:
+        click.echo("Error: " + str(e))
+        sys.exit(1)
