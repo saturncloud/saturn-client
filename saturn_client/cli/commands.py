@@ -3,7 +3,7 @@ from typing import List, Optional
 from ruamel.yaml import YAML
 import click
 
-from saturn_client.cli.utils import OutputFormat, print_pod_table, print_resources
+from saturn_client.cli.utils import OutputFormat, print_pod_table, print_resources, print_resource_op
 from saturn_client.core import ResourceStatus, SaturnConnection, ResourceType, SaturnHTTPError
 
 
@@ -71,11 +71,20 @@ def list(
 @click.option(
     "-o",
     "--output",
-    default=OutputFormat.TABLE,
+    default=OutputFormat.YAML,
     type=click.Choice(OutputFormat.values(), case_sensitive=False),
-    help="Output format. Defaults to table."
+    help="Output format. Defaults to yaml."
 )
 def get(_type: str, name: str, owner: Optional[str] = None, output: str = OutputFormat.TABLE):
+    """
+    Get a recipe for an object in saturn.
+
+    \b
+    TYPE (required):
+        deployment, job, workspace
+    NAME (required):
+        Exact match on name
+    """
     client = SaturnConnection()
     resource = client.get_resource(_type, name, owner_name=owner)
     print_resources(resource, output=output)
@@ -176,10 +185,16 @@ def apply(input_file: str, start: bool = False):
         obj = yaml.load(f)
     client = SaturnConnection()
     result = client.apply(obj)
+    resource_type = ResourceType.lookup(result["type"])
+    resource_name = result["spec"]["name"]
+    owner_name = result["spec"]["owner"]
+
+    print_resource_op("Applied", resource_type, resource_name, owner_name, "from recipe")
     if start:
         resource_type = ResourceType.lookup(result["type"])
         resource_id = result["state"]["id"]
         client.start(resource_type, resource_id)
+        print_resource_op("Started", resource_type, resource_name, owner_name)
 
 
 @cli.command()
@@ -205,13 +220,16 @@ def start(resource_type: str, resource_name: str, owner: Optional[str] = None, d
     Start a resource
 
     \b
-    INPUT_FILE (required):
-        Path to a YAML or JSON recipe file
+    RESOURCE_TYPE (required):
+        deployment, job, workspace
+    RESOURCE_NAME (required):
+        Exact match on name
     """
     client = SaturnConnection()
     resource = client.get_resource(resource_type, resource_name, owner_name=owner)
     resource_id = resource["state"]["id"]
     client.start(resource_type, resource_id, debug_mode=debug)
+    print_resource_op("Started", resource_type, resource_name, owner)
 
 
 @cli.command()
@@ -223,11 +241,21 @@ def start(resource_type: str, resource_name: str, owner: Optional[str] = None, d
     required=False,
     help="Resource owner name. Defaults to current auth identity.",
 )
-def stop(resource_type: str, resource_name: str, owner_name: Optional[str] = None):
+def stop(resource_type: str, resource_name: str, owner: Optional[str] = None):
+    """
+    Stop a resource
+
+    \b
+    RESOURCE_TYPE (required):
+        deployment, job, workspace
+    RESOURCE_NAME (required):
+        Exact match on name
+    """
     client = SaturnConnection()
-    resource = client.get_resource(resource_type, resource_name, owner_name=owner_name)
+    resource = client.get_resource(resource_type, resource_name, owner_name=owner)
     resource_id = resource["state"]["id"]
     client.stop(resource_type, resource_id)
+    print_resource_op("Stopped", resource_type, resource_name, owner)
 
 
 @cli.command()
@@ -249,10 +277,23 @@ def stop(resource_type: str, resource_name: str, owner_name: Optional[str] = Non
     ),
 )
 def restart(resource_type: str, resource_name: str, owner: Optional[str] = None, debug: bool = False):
+    """
+    Restart a resource
+
+    \b
+    RESOURCE_TYPE (required):
+        deployment, job, workspace
+    RESOURCE_NAME (required):
+        Exact match on name
+    """
     client = SaturnConnection()
     resource = client.get_resource(resource_type, resource_name, owner_name=owner)
     resource_id = resource["state"]["id"]
     client.restart(resource_type, resource_id, debug_mode=debug)
+    print_resource_op(
+        "Restarted", resource_type, resource_name, owner, "in debug mode" if debug else None
+    )
+
 
 @cli.command()
 @click.argument("job_name")
