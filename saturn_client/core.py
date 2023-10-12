@@ -9,7 +9,7 @@ import datetime as dt
 from dataclasses import dataclass
 from functools import reduce
 import requests
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 from urllib.parse import urljoin, urlencode
 
 from saturn_client.settings import Settings

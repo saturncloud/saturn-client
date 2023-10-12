@@ -80,6 +80,7 @@ def get(_type: str, name: str, owner: Optional[str] = None, output: str = Output
     resource = client.get_resource(_type, name, owner_name=owner)
     print_resources(resource, output=output)
 
+
 @cli.command()
 @click.argument("resource_type")
 @click.argument("resource_name")
