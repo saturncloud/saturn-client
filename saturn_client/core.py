@@ -449,7 +449,9 @@ class SaturnConnection:
         base_url = urljoin(self.url, f"api/{url_name}/{job_id}")
         if cron_schedule:
             response = requests.patch(
-                base_url, {"cron_schedule_options": {"schedule": cron_schedule}}
+                base_url,
+                json={"cron_schedule_options": {"schedule": cron_schedule}},
+                headers=self.settings.headers,
             )
             if not response.ok:
                 raise SaturnHTTPError.from_response(response)
