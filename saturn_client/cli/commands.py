@@ -181,8 +181,80 @@ def apply(input_file: str, start: bool = False):
     if start:
         resource_type = ResourceType.lookup(result["type"])
         resource_id = result["state"]["id"]
-        client._start(resource_type, resource_id)
+        client.start(resource_type, resource_id)
 
+
+@cli.command()
+@click.argument("resource_type")
+@click.argument("resource_name")
+@click.option(
+    "--owner",
+    default=None,
+    required=False,
+    help="Resource owner name. Defaults to current auth identity.",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    help=(
+        "Enable debug mode on the resource. "
+        "This enables SSH, and prevents the container from exiting "
+        "if the main process fails."
+    ),
+)
+def start(resource_type: str, resource_name: str, owner: Optional[str] = None, debug: bool = False):
+    """
+    Start a resource
+
+    \b
+    INPUT_FILE (required):
+        Path to a YAML or JSON recipe file
+    """
+    client = SaturnConnection()
+    resource = client.get_resource(resource_type, resource_name, owner_name=owner)
+    resource_id = resource["state"]["id"]
+    client.start(resource_type, resource_id, debug_mode=debug)
+
+
+@cli.command()
+@click.argument("resource_type")
+@click.argument("resource_name")
+@click.option(
+    "--owner",
+    default=None,
+    required=False,
+    help="Resource owner name. Defaults to current auth identity.",
+)
+def stop(resource_type: str, resource_name: str, owner_name: Optional[str] = None):
+    client = SaturnConnection()
+    resource = client.get_resource(resource_type, resource_name, owner_name=owner_name)
+    resource_id = resource["state"]["id"]
+    client.stop(resource_type, resource_id)
+
+
+@cli.command()
+@click.argument("resource_type")
+@click.argument("resource_name")
+@click.option(
+    "--owner",
+    default=None,
+    required=False,
+    help="Resource owner name. Defaults to current auth identity.",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    help=(
+        "Enable debug mode on the resource. "
+        "This enables SSH, and prevents the container from exiting "
+        "if the main process fails."
+    ),
+)
+def restart(resource_type: str, resource_name: str, owner: Optional[str] = None, debug: bool = False):
+    client = SaturnConnection()
+    resource = client.get_resource(resource_type, resource_name, owner_name=owner)
+    resource_id = resource["state"]["id"]
+    client.restart(resource_type, resource_id, debug_mode=debug)
 
 if __name__ == "__main__":
     try:

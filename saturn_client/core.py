@@ -417,11 +417,28 @@ class SaturnConnection:
         result = response.json()
         return result
 
-    def _start(self, resource_type: str, resource_id: str):
+    def start(self, resource_type: str, resource_id: str, debug_mode: bool = False):
         url_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{url_name}/{resource_id}/start")
+        data = {"debug_mode": True} if debug_mode else None
+        response = requests.post(url, headers=self.settings.headers, json=data)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        return response.json()
+
+    def stop(self, resource_type: str, resource_id: str):
+        url_name = ResourceType.get_url_name(resource_type)
+        url = urljoin(self.url, f"api/{url_name}/{resource_id}/stop")
         response = requests.post(url, headers=self.settings.headers)
         if not response.ok:
             raise SaturnHTTPError.from_response(response)
-        result = response.json()
-        return result
+        return response.json()
+
+    def restart(self, resource_type: str, resource_id: str, debug_mode: bool = False):
+        url_name = ResourceType.get_url_name(resource_type)
+        url = urljoin(self.url, f"api/{url_name}/{resource_id}/restart")
+        data = {"debug_mode": True} if debug_mode else None
+        response = requests.post(url, headers=self.settings.headers, json=data)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        return response.json()
