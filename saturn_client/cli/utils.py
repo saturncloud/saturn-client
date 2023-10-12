@@ -47,18 +47,18 @@ def print_resources(resource: Union[List, Dict], output: str = OutputFormat.TABL
 
 
 def print_resource_table(
-    results: List[Dict[str, Any]],
+    resources: List[Dict[str, Any]],
 ):
     headers = ["owner", "name", "resource_type", "status", "instance_type", "instance_count", "id"]
     data: List[List[str]] = []
-    for recipe in results:
-        spec = recipe["spec"]
-        state = recipe["state"]
-        id = state["id"]
-        owner = spec["owner"]
+    for resource in resources:
+        spec = resource["spec"]
+        state = resource.get("state", {})
+        id = state.get("id")
+        owner = spec.get("owner")
         name = spec["name"]
-        resource_type = recipe["type"]
-        status = state["status"]
+        resource_type = resource["type"]
+        status = state.get("status")
         instance_type = spec["instance_type"]
         instance_count = spec.get("instance_count", 1)
         data.append([owner, name, resource_type, status, instance_type, instance_count, id])
@@ -120,7 +120,7 @@ def print_resource_op(
     resource_type: str,
     resource_name: Optional[str] = None,
     owner_name: Optional[str] = None,
-    *args: str
+    *args: str,
 ):
     parts = [
         operation,

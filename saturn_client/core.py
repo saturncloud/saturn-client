@@ -214,6 +214,7 @@ class SaturnConnection:
         resource_type: Optional[str] = None,
         resource_name: Optional[str] = None,
         owner_name: Optional[str] = None,
+        as_template: bool = False,
         status: Optional[Union[str, Iterable[str]]] = None,
     ) -> List[Dict[str, Any]]:
         next_last_key = None
@@ -226,6 +227,8 @@ class SaturnConnection:
             qparams["owner_name"] = owner_name
         if resource_name:
             qparams["name"] = resource_name
+        if as_template:
+            qparams["as_template"] = True
         base_url = urljoin(self.url, "api/recipes")
         while True:
             url = base_url + "?" + urlencode(qparams)
@@ -248,13 +251,19 @@ class SaturnConnection:
         return recipes
 
     def get_resource(
-        self, resource_type: str, resource_name: str, owner_name: str = None
+        self,
+        resource_type: str,
+        resource_name: str,
+        owner_name: str = None,
+        as_template: bool = False,
     ) -> Dict[str, Any]:
         resource_type = ResourceType.lookup(resource_type)
         url = urljoin(self.url, f"api/recipes/{resource_type}/{resource_name}")
         qparams = {}
         if owner_name:
             qparams["owner_name"] = owner_name
+        if as_template:
+            qparams["as_template"] = True
         url = url + "?" + urlencode(qparams)
 
         response = requests.get(url, headers=self.settings.headers)

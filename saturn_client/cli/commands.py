@@ -3,7 +3,12 @@ from typing import List, Optional
 from ruamel.yaml import YAML
 import click
 
-from saturn_client.cli.utils import OutputFormat, print_pod_table, print_resources, print_resource_op
+from saturn_client.cli.utils import (
+    OutputFormat,
+    print_pod_table,
+    print_resources,
+    print_resource_op,
+)
 from saturn_client.core import ResourceStatus, SaturnConnection, ResourceType, SaturnHTTPError
 
 
@@ -20,6 +25,7 @@ def cli():
     default=None,
     help="Resource owner name. Defaults to current auth identity.",
 )
+@click.option("--as-template", is_flag=True, help="Retrieve recipe as a template for cloning.")
 @click.option(
     "-s",
     "--status",
@@ -32,12 +38,13 @@ def cli():
     "--output",
     default="table",
     type=click.Choice(OutputFormat.values(), case_sensitive=False),
-    help="Output format. Defaults to table."
+    help="Output format. Defaults to table.",
 )
 def list(
     _type: Optional[str],
     name: Optional[str] = None,
     owner: Optional[str] = None,
+    as_template: bool = False,
     status: Optional[List[str]] = None,
     output: str = OutputFormat.TABLE,
 ):
@@ -55,7 +62,7 @@ def list(
     if _type in {"resource", "resources"}:
         _type = None
     resources = client.list_resources(
-        _type, resource_name=name, owner_name=owner, status=status
+        _type, resource_name=name, owner_name=owner, status=status, as_template=as_template
     )
     print_resources(resources, output=output)
 
@@ -68,14 +75,21 @@ def list(
     default=None,
     help="Resource owner name. Defaults to current auth identity.",
 )
+@click.option("--as-template", is_flag=True, help="Retrieve recipe as a template for cloning.")
 @click.option(
     "-o",
     "--output",
     default=OutputFormat.YAML,
     type=click.Choice(OutputFormat.values(), case_sensitive=False),
-    help="Output format. Defaults to yaml."
+    help="Output format. Defaults to yaml.",
 )
-def get(_type: str, name: str, owner: Optional[str] = None, output: str = OutputFormat.TABLE):
+def get(
+    _type: str,
+    name: str,
+    owner: Optional[str] = None,
+    as_template: bool = False,
+    output: str = OutputFormat.TABLE,
+):
     """
     Get a recipe for an object in saturn.
 
@@ -86,7 +100,7 @@ def get(_type: str, name: str, owner: Optional[str] = None, output: str = Output
         Exact match on name
     """
     client = SaturnConnection()
-    resource = client.get_resource(_type, name, owner_name=owner)
+    resource = client.get_resource(_type, name, owner_name=owner, as_template=as_template)
     print_resources(resource, output=output)
 
 
@@ -276,7 +290,9 @@ def stop(resource_type: str, resource_name: str, owner: Optional[str] = None):
         "if the main process fails."
     ),
 )
-def restart(resource_type: str, resource_name: str, owner: Optional[str] = None, debug: bool = False):
+def restart(
+    resource_type: str, resource_name: str, owner: Optional[str] = None, debug: bool = False
+):
     """
     Restart a resource
 
@@ -304,12 +320,13 @@ def restart(resource_type: str, resource_name: str, owner: Optional[str] = None,
     required=False,
     help="Resource owner name. Defaults to current auth identity.",
 )
-@click.option(
-    "--disable",
-    is_flag=True,
-    help="Disable scheduling for the job"
-)
-def schedule(job_name: str, cron_schedule: Optional[str] = None, owner: Optional[str] = None, disable: bool = False):
+@click.option("--disable", is_flag=True, help="Disable scheduling for the job")
+def schedule(
+    job_name: str,
+    cron_schedule: Optional[str] = None,
+    owner: Optional[str] = None,
+    disable: bool = False,
+):
     """
     Enable or disable scheduling for a job. If CRON_SCHEDULE is not given, then it
     is assumed that the job already has a cron schedule set.
@@ -326,9 +343,7 @@ def schedule(job_name: str, cron_schedule: Optional[str] = None, owner: Optional
     resource = client.get_resource(ResourceType.JOB, job_name, owner_name=owner)
     job_id = resource["state"]["id"]
     client.schedule(job_id, cron_schedule=cron_schedule, disable=disable)
-    print_resource_op(
-        "Unscheduled" if disable else "Scheduled", ResourceType.JOB, job_name, owner
-    )
+    print_resource_op("Unscheduled" if disable else "Scheduled", ResourceType.JOB, job_name, owner)
 
 
 if __name__ == "__main__":
