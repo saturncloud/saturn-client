@@ -58,14 +58,17 @@ def has_logs(pod_summary: Dict[str, Any]) -> bool:
     return any(c.get("logs") for c in init_containers)
 
 
-def format_container_logs(container_summary: Dict[str, Any], is_previous: bool = False) -> str:
+def format_container_logs(
+    container_summary: Dict[str, Any], is_previous: bool = False, is_init: bool = False
+) -> str:
     label = ""
     if is_previous:
         label = " (previous)"
     logs = container_summary["logs"]
     if not logs:
         logs = f"Status: {container_summary['status']}"
-    logs = _section_header(f"Container: {container_summary['name']}{label}", logs, char="-")
+    header = "Container" if not is_init else "Init Container"
+    logs = _section_header(f"{header}: {container_summary['name']}{label}", logs, char="-")
     finished_at = container_summary.get("finished_at")
     if finished_at:
         finished_at = container_summary["finished_at"]

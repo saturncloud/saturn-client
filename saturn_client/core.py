@@ -292,6 +292,7 @@ class SaturnConnection:
                 owner_name=owner_name,
                 pod_name=pod_name,
                 resource_id=resource_id,
+                all_containers=all_containers,
             )
 
         historical_pods = self._get_historical_pods(resource_type, resource_id)

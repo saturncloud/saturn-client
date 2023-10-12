@@ -126,10 +126,7 @@ def pods(
     "--all-containers",
     default=False,
     is_flag=True,
-    help=(
-        "Print logs for all containers. "
-        "By default, only logs for the main container are shown (or init containers during setup)"
-    ),
+    help="Print logs for all containers.",
 )
 def logs(
     resource_type: str,
@@ -140,6 +137,7 @@ def logs(
 ):
     """
     Print logs for a given resource.
+    By default, only logs for the main container are shown (or init containers during setup)
 
     \b
     RESOURCE_TYPE (required):
