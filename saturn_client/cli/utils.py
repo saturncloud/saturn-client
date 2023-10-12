@@ -113,3 +113,21 @@ def tabulate(
     click.echo("-" * (sum(widths) + rpadding * (len(headers) - 1)))
     for row in data:
         click.echo(format_str.format(*row))
+
+
+def print_resource_op(
+    operation: str,
+    resource_type: str,
+    resource_name: Optional[str] = None,
+    owner_name: Optional[str] = None,
+    *args: str
+):
+    parts = [
+        operation,
+        resource_type,
+        resource_name,
+    ]
+    if owner_name:
+        parts.append(f"for {owner_name}")
+    parts.extend(args)
+    click.echo(" ".join([p for p in parts if p]))

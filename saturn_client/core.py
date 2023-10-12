@@ -443,3 +443,19 @@ class SaturnConnection:
         if not response.ok:
             raise SaturnHTTPError.from_response(response)
         return response.json()
+
+    def schedule(self, job_id: str, cron_schedule: Optional[str] = None, disable: bool = False):
+        url_name = ResourceType.get_url_name(ResourceType.JOB)
+        base_url = urljoin(self.url, f"api/{url_name}/{job_id}")
+        if cron_schedule:
+            response = requests.patch(
+                base_url, {"cron_schedule_options": {"schedule": cron_schedule}}
+            )
+            if not response.ok:
+                raise SaturnHTTPError.from_response(response)
+
+        url = urljoin(f"{base_url}/", "unschedule" if disable else "schedule")
+        response = requests.post(url, headers=self.settings.headers)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        return response.json()
