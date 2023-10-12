@@ -134,7 +134,7 @@ class Pod:
     name: str
     status: str
     source: str
-    start_time: str
+    start_time: Optional[str]
     end_time: Optional[str]
 
     @classmethod
@@ -354,7 +354,7 @@ class SaturnConnection:
         result = response.json()["pods"]
         for p in result:
             p["source"] = "historical"
-        result = sorted(result, key=lambda x: (x["start_time"], x["pod_name"]), reverse=True)
+        result = sorted(result, key=lambda x: (x["start_time"] or "", x["pod_name"]), reverse=True)
         return result
 
     def _get_live_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
@@ -373,7 +373,7 @@ class SaturnConnection:
             pod_summaries = result.get("pod_summaries", [])
         for pod in pod_summaries:
             end_time = pod.get("completed_at", "")
-            start_time = pod["started_at"]
+            start_time = pod.get("started_at", "")
             status = pod["status"]
             pod_name = pod["name"]
             last_seen = utcnow()

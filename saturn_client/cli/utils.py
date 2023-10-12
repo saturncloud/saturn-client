@@ -74,8 +74,8 @@ def print_pod_table(
         pod_name = pod["pod_name"]
         status = pod["status"]
         source = pod["source"]
-        start_time = pod["start_time"]
-        end_time = pod["end_time"] if pod["end_time"] else ""
+        start_time = pod["start_time"] or ""
+        end_time = pod["end_time"] or ""
         data.append([pod_name, status, source, start_time, end_time])
     tabulate(data, headers)
 
@@ -95,6 +95,8 @@ def tabulate(
 
     for row in data:
         for i, value in enumerate(row):
+            if value is None:
+                row[i] = value = ""
             widths[i] = max(widths[i], len(str(value)))
 
     header_format_str = ""
