@@ -9,7 +9,13 @@ from saturn_client.cli.utils import (
     print_resources,
     print_resource_op,
 )
-from saturn_client.core import ResourceStatus, SaturnConnection, ResourceType, SaturnHTTPError
+from saturn_client.core import (
+    DataSource,
+    ResourceStatus,
+    SaturnConnection,
+    ResourceType,
+    SaturnHTTPError,
+)
 
 
 @click.group()
@@ -113,11 +119,20 @@ def get(
     "--status",
     required=False,
     multiple=True,
-    type=click.Choice(ResourceStatus.values()),
+    type=click.Choice(ResourceStatus.values(), case_sensitive=False),
     help="Filter pod status by one or more value",
 )
+@click.option(
+    "--source",
+    type=click.Choice(DataSource.values(), case_sensitive=False),
+    help="Filter for pods from either live or historical data.",
+)
 def pods(
-    resource_type: str, resource_name: str, owner: str = None, status: Optional[List[str]] = None
+    resource_type: str,
+    resource_name: str,
+    owner: str = None,
+    status: Optional[List[str]] = None,
+    source: Optional[str] = None,
 ):
     """
     List active pods associated with a resource.
@@ -129,8 +144,9 @@ def pods(
         Exact match on name
     """
     client = SaturnConnection()
-    resource_type = ResourceType.lookup(resource_type)
-    pods = client.get_pods(resource_type, resource_name, owner_name=owner, status=status)
+    pods = client.get_pods(
+        resource_type, resource_name, owner_name=owner, status=status, source=source
+    )
     print_pod_table(pods)
 
 
@@ -145,6 +161,14 @@ def pods(
     help="Resource owner name. Defaults to current auth identity.",
 )
 @click.option(
+    "--source",
+    type=click.Choice(DataSource.values(), case_sensitive=False),
+    help=(
+        "Select a single log source, either live or historical. "
+        "By default, live logs will be retrieved if available."
+    ),
+)
+@click.option(
     "-a",
     "--all-containers",
     default=False,
@@ -157,6 +181,7 @@ def logs(
     owner: str = None,
     pod_name: str = None,
     all_containers: bool = False,
+    source: Optional[str] = None,
 ):
     """
     Print logs for a given resource.
@@ -176,6 +201,7 @@ def logs(
         resource_name,
         owner_name=owner,
         pod_name=pod_name,
+        source=source,
         all_containers=all_containers,
     )
     click.echo(logs)

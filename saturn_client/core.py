@@ -68,17 +68,17 @@ class ResourceType:
         return cls.lookup(resource_type) + "s"
 
     @classmethod
-    def lookup(cls, input: str):
+    def lookup(cls, value: str):
         types = set(cls.values())
-        resource_type = input.lower()
+        resource_type = value.lower()
         if resource_type in types:
             return resource_type
         if resource_type.endswith("s"):
-            # Check if input was pluralized
+            # Check if value was pluralized
             resource_type = resource_type[:-1]
             if resource_type in types:
                 return resource_type
-        raise SaturnError(f'resource type "{input}" not found')
+        raise SaturnError(f'resource type "{value}" not found')
 
 
 class ResourceStatus:
@@ -95,6 +95,27 @@ class ResourceStatus:
     @classmethod
     def values(cls) -> List[str]:
         return [cls.PENDING, cls.RUNNING, cls.STOPPING, cls.STOPPED, cls.ERROR]
+
+
+class DataSource:
+    """
+    Enum for data source used for retrieving pods and logs
+    """
+
+    LIVE = "live"
+    HISTORICAL = "historical"
+
+    @classmethod
+    def values(cls) -> List[str]:
+        return [cls.LIVE, cls.HISTORICAL]
+
+    @classmethod
+    def lookup(cls, value: str) -> str:
+        sources = set(cls.values())
+        source = value.lower()
+        if source in sources:
+            return source
+        raise SaturnError(f'Pod source "{value}" not found')
 
 
 @dataclass
@@ -278,36 +299,45 @@ class SaturnConnection:
         owner_name: Optional[str] = None,
         pod_name: Optional[str] = None,
         resource_id: Optional[str] = None,
+        source: Optional[str] = None,
         all_containers: bool = False,
     ) -> str:
         resource_type = ResourceType.lookup(resource_type)
+        if source:
+            source = DataSource.lookup(source)
         if not resource_id:
             resource = self.get_resource(resource_type, resource_name, owner_name=owner_name)
             resource_id = resource["state"]["id"]
 
         if pod_name:
-            pod_summary = self._get_pod_runtime_summary(pod_name, resource_id=resource_id)
-            if is_live(pod_summary):
-                return format_logs(pod_summary, all_containers=all_containers)
-            return self._get_historical_pod_logs(resource_type, resource_id, pod_name)
+            if not source or source == DataSource.LIVE:
+                pod_summary = self._get_pod_runtime_summary(pod_name, resource_id=resource_id)
+                if is_live(pod_summary):
+                    return format_logs(pod_summary, all_containers=all_containers)
+            if not source or source == DataSource.HISTORICAL:
+                return self._get_historical_pod_logs(resource_type, resource_id, pod_name)
+            return ""
 
-        # Search for latest pod
-        pods = self._get_live_pods(resource_type, resource_id)
-        if len(pods) > 0:
-            pod_name = pods[0]["pod_name"]
-            return self.get_logs(
-                resource_type,
-                resource_name,
-                owner_name=owner_name,
-                pod_name=pod_name,
-                resource_id=resource_id,
-                all_containers=all_containers,
-            )
+        if not source or source == DataSource.LIVE:
+            # Search for latest live pod
+            pods = self._get_live_pods(resource_type, resource_id)
+            if len(pods) > 0:
+                pod_name = pods[0]["pod_name"]
+                return self.get_logs(
+                    resource_type,
+                    resource_name,
+                    owner_name=owner_name,
+                    pod_name=pod_name,
+                    resource_id=resource_id,
+                    all_containers=all_containers,
+                )
 
-        historical_pods = self._get_historical_pods(resource_type, resource_id)
-        if len(historical_pods) > 0:
-            pod_name = historical_pods[0]["pod_name"]
-            return self._get_historical_pod_logs(resource_type, resource_id, pod_name)
+        if not source or source == DataSource.HISTORICAL:
+            # Search for latest historical pod
+            historical_pods = self._get_historical_pods(resource_type, resource_id)
+            if len(historical_pods) > 0:
+                pod_name = historical_pods[0]["pod_name"]
+                return self._get_historical_pod_logs(resource_type, resource_id, pod_name)
         return ""
 
     def _get_live_pod_logs(
@@ -330,22 +360,21 @@ class SaturnConnection:
         resource_type: str,
         resource_name: str,
         owner_name: Optional[str] = None,
+        source: Optional[str] = None,
         status: Optional[Union[str, Iterable[str]]] = None,
     ) -> List[Dict[str, Any]]:
-        resource = self.get_resource(resource_type, resource_name, owner_name)
-        return self._get_all_pods(resource_type, resource["state"]["id"], status=status)
+        resource_type = ResourceType.lookup(resource_type)
+        if source:
+            source = DataSource.lookup(source)
 
-    def _get_all_pods(
-        self,
-        resource_type: str,
-        resource_id: str,
-        status: Optional[Union[str, Iterable[str]]] = None,
-    ) -> List[Dict[str, Any]]:
-        historical_pods = self._get_historical_pods(resource_type, resource_id)
-        live_pods = self._get_live_pods(resource_type, resource_id)
-        live_pod_names = set(x["pod_name"] for x in live_pods)
-        historical_pods = [x for x in historical_pods if x["pod_name"] not in live_pod_names]
-        pods = live_pods + historical_pods
+        resource = self.get_resource(resource_type, resource_name, owner_name)
+        resource_id = resource["state"]["id"]
+        if source is None:
+            pods = self._get_all_pods(resource_type, resource_id)
+        elif source == DataSource.LIVE:
+            pods = self._get_live_pods(resource_type, resource_id)
+        else:
+            pods = self._get_historical_pods(resource_type, resource_id)
 
         if status:
             if isinstance(status, str):
@@ -354,6 +383,17 @@ class SaturnConnection:
                 status = set(status)
             pods = [p for p in pods if p.get("status") in status]
         return pods
+
+    def _get_all_pods(
+        self,
+        resource_type: str,
+        resource_id: str,
+    ) -> List[Dict[str, Any]]:
+        historical_pods = self._get_historical_pods(resource_type, resource_id)
+        live_pods = self._get_live_pods(resource_type, resource_id)
+        live_pod_names = set(x["pod_name"] for x in live_pods)
+        historical_pods = [x for x in historical_pods if x["pod_name"] not in live_pod_names]
+        return live_pods + historical_pods
 
     def _get_historical_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
         api_name = ResourceType.get_url_name(resource_type)
