@@ -372,9 +372,13 @@ def schedule(
     print_resource_op("Unscheduled" if disable else "Scheduled", ResourceType.JOB, job_name, owner)
 
 
-if __name__ == "__main__":
+def entrypoint():
     try:
         cli(max_content_width=100)
     except SaturnHTTPError as e:
         click.echo("Error: " + str(e))
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    entrypoint()

@@ -24,6 +24,11 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
     ],
+    entry_points={
+        "console_scripts": [
+            "sc=saturn_client.cli.commands:entrypoint",
+        ]
+    },
     keywords="saturn cloud client library",
     description="Python library for interacting with Saturn Cloud API",
     long_description=(open("README.md").read() if os.path.exists("README.md") else ""),
