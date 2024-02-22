@@ -13,11 +13,7 @@ import requests
 from typing import Any, Dict, Iterable, List, Optional, Union
 from urllib.parse import urljoin, urlencode
 
-from saturn_client.settings import Settings
 from saturn_client.logs import format_historical_logs, format_logs, is_live
-from requests.exceptions import HTTPError
-from fsspec.generic import rsync
-
 from saturnfs import SaturnFS
 from saturnfs.cli.callback import FileOpCallback, file_op
 

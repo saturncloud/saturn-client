@@ -1,4 +1,5 @@
 import sys
+from os.path import join
 from typing import List, Optional
 from ruamel.yaml import YAML
 import click
@@ -221,9 +222,10 @@ def apply(input_file: str, start: bool = False, sync: List[str] = []):
     INPUT_FILE (required):
         Path to a YAML or JSON recipe file
     """
+    recipe = None
     with open(input_file, "r") as f:
         yaml = YAML()
-        obj = yaml.load(f)
+        recipe = yaml.load(f)
 
     client = SaturnConnection()
     settings = client.settings
@@ -238,17 +240,16 @@ def apply(input_file: str, start: bool = False, sync: List[str] = []):
         sfs_path = client.upload_source(source, dest)
         cmd = f"saturnfs cp --recursive {sfs_path} {dest}"
         commands.append(cmd)
-    start_script = obj["spec"].get("start_script", "")
+    start_script = recipe["spec"].get("start_script", "")
     starting_index = start_script.find(START_STRING)
     ending_index = start_script.find(END_STRING)
     if starting_index >= 0 and ending_index >= 0:
-        start_script = (
-            start_script[:starting_index] + start_script[ending_index + len(END_STRING) + 1 :]
-        )
+        stop = ending_index + len(END_STRING) + 1
+        start_script = start_script[:starting_index] + start_script[stop:]
     to_inject = [START_STRING] + commands + [END_STRING]
     start_script = "\n".join(to_inject) + start_script
-    obj["spec"]["start_script"] = start_script
-    result = client.apply(obj)
+    recipe["spec"]["start_script"] = start_script
+    result = client.apply(recipe)
     resource_type = ResourceType.lookup(result["type"])
     resource_name = result["spec"]["name"]
     owner_name = result["spec"]["owner"]
@@ -385,7 +386,8 @@ def schedule(
     JOB_NAME (required):
         Exact match on name
     CRON_SCHEDULE (optional):
-        Update the job's schedule before enabling. May be provided in cron format, or using special @ tags.
+        Update the job's schedule before enabling.
+        May be provided in cron format, or using special @ tags.
             Predefined: @hourly, @daily, @midnight, @weekly, @monthly, @yearly
             Interval: @every <duration> (e.g. "@every 4h")
     """

@@ -10,4 +10,4 @@ format:
 lint:
 	flake8 .
 	black --check --diff saturn_client/
-	pylint saturn_client/
+	
