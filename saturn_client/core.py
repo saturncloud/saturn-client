@@ -212,14 +212,14 @@ class SaturnConnection:
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
             raise ValueError(response.reason)
-        return response.json()['orgs']
+        return response.json()["orgs"]
 
     @property
     def primary_org(self) -> Dict[str, Any]:
         orgs = self.orgs
         primary_org = None
         for o in orgs:
-            if o['is_primary']:
+            if o["is_primary"]:
                 primary_org = o
         if primary_org:
             return primary_org
@@ -230,18 +230,13 @@ class SaturnConnection:
         This method uploads a local_path to some location in sfs, which in the future
         will be downloaded to saturn_resource_path
         """
-        username = self.current_user['username']
-        org_name = self.primary_org['name']
+        username = self.current_user["username"]
+        org_name = self.primary_org["name"]
         sfs_path = f"{org_name}/{username}/{resource_name}{saturn_resource_path}"
         fs = SaturnFS()
         operation = file_op(True, False)
         callback = FileOpCallback(operation=operation)
-        fs.put(
-            local_path,
-            sfs_path,
-            recursive=True,
-            callback=callback
-        )
+        fs.put(local_path, sfs_path, recursive=True, callback=callback)
         return "sfs://" + sfs_path
 
     @property
