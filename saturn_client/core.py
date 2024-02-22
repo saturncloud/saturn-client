@@ -3,15 +3,18 @@
 NOTE: This is an experimental library and will likely change in
 the future
 """
+from json import JSONDecodeError
 import logging
 import datetime as dt
 from dataclasses import dataclass
 from functools import reduce
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+import requests
+from typing import Any, Dict, Iterable, List, Optional, Union
 from urllib.parse import urljoin, urlencode
 
-import requests
+from saturn_client.settings import Settings
+from saturn_client.logs import format_historical_logs, format_logs, is_live
 from requests.exceptions import HTTPError
 from fsspec.generic import rsync
 
@@ -41,24 +44,28 @@ class SaturnHTTPError(SaturnError):
         super().__init__(message)
         self.status_code = status_code
 
+    @classmethod
+    def from_response(cls, response: requests.Response):
+        try:
+            error = response.json()
+        except JSONDecodeError:
+            error = response.reason
+        return cls(error, response.status_code)
+
 
 class ResourceType:
     """Enum for resource_type
 
     All resource models should return one of these as resource.resource_type.
-
-    This currently does not match the resource types in Atlas, but it matches the API we want for users.
-
-    We also avoid using the Enum module to minimize dependencies
     """
 
-    DEPLOYMENT = "Deployment"
-    JOB = "Job"
-    WORKSPACE = "Workspace"
+    DEPLOYMENT = "deployment"
+    JOB = "job"
+    WORKSPACE = "workspace"
 
     @classmethod
-    def possible_resource_types(cls) -> str:
-        return {cls.DEPLOYMENT, cls.JOB, cls.WORKSPACE}
+    def values(cls) -> List[str]:
+        return [cls.DEPLOYMENT, cls.JOB, cls.WORKSPACE]
 
     @classmethod
     def get_url_name(cls, resource_type: str) -> str:
@@ -66,24 +73,57 @@ class ResourceType:
         converts from the name of the resource type to the string we use in the urls. Currently
         this is just the lower case value + plural.
         """
-        return cls.get_api_name(resource_type) + "s"
+        return cls.lookup(resource_type) + "s"
 
     @classmethod
-    def get_api_name(cls, resource_type: str) -> str:
-        """
-        converts from the name of the resource type to the string we use in the API. Currently
-        this is just the lower case value.
-        """
-        if resource_type not in cls.possible_resource_types():
-            raise SaturnError(f"Invalid resource type {resource_type}")
-        return resource_type.lower()
-
-    @classmethod
-    def lookup(cls, input: str):
-        for resource_type in cls.possible_resource_types():
-            if resource_type.lower() == input.lower():
+    def lookup(cls, value: str):
+        types = set(cls.values())
+        resource_type = value.lower()
+        if resource_type in types:
+            return resource_type
+        if resource_type.endswith("s"):
+            # Check if value was pluralized
+            resource_type = resource_type[:-1]
+            if resource_type in types:
                 return resource_type
-        raise SaturnError(f"resource type {input} not found")
+        raise SaturnError(f'resource type "{value}" not found')
+
+
+class ResourceStatus:
+    """
+    Enum for resource statuses
+    """
+
+    PENDING = "pending"
+    RUNNING = "running"
+    STOPPING = "stopping"
+    STOPPED = "stopped"
+    ERROR = "error"
+
+    @classmethod
+    def values(cls) -> List[str]:
+        return [cls.PENDING, cls.RUNNING, cls.STOPPING, cls.STOPPED, cls.ERROR]
+
+
+class DataSource:
+    """
+    Enum for data source used for retrieving pods and logs
+    """
+
+    LIVE = "live"
+    HISTORICAL = "historical"
+
+    @classmethod
+    def values(cls) -> List[str]:
+        return [cls.LIVE, cls.HISTORICAL]
+
+    @classmethod
+    def lookup(cls, value: str) -> str:
+        sources = set(cls.values())
+        source = value.lower()
+        if source in sources:
+            return source
+        raise SaturnError(f'Pod source "{value}" not found')
 
 
 @dataclass
@@ -123,7 +163,7 @@ class Pod:
     name: str
     status: str
     source: str
-    start_time: str
+    start_time: Optional[str]
     end_time: Optional[str]
 
     @classmethod
@@ -222,7 +262,7 @@ class SaturnConnection:
         url = urljoin(self.url, "api/status")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
+            raise SaturnHTTPError.from_response(response)
         return response.json()["version"]
 
     @property
@@ -232,73 +272,169 @@ class SaturnConnection:
             url = urljoin(self.url, "api/info/servers")
             response = requests.get(url, headers=self.settings.headers)
             if not response.ok:
-                raise SaturnHTTPError(response.reason, status_code=response.status_code)
+                raise SaturnHTTPError.from_response(response)
             self._options = response.json()
         return self._options
 
-    def _get_recipes(
+    def list_resources(
         self,
-        resource_type: str,
+        resource_type: Optional[str] = None,
         resource_name: Optional[str] = None,
-        owner_name: str = None,
-        max_count=10,
-    ) -> List[Any]:
+        owner_name: Optional[str] = None,
+        as_template: bool = False,
+        status: Optional[Union[str, Iterable[str]]] = None,
+    ) -> List[Dict[str, Any]]:
         next_last_key = None
         recipes = []
-        if owner_name is None:
-            owner_name = self.current_user["username"]
-        resource_type = ResourceType.get_api_name(resource_type)
+        qparams = {}
+        if resource_type is not None:
+            resource_type = ResourceType.lookup(resource_type)
+            qparams["type"] = resource_type
+        if owner_name:
+            qparams["owner_name"] = owner_name
+        if resource_name:
+            qparams["name"] = resource_name
+        if as_template:
+            qparams["as_template"] = True
+        base_url = urljoin(self.url, "api/recipes")
         while True:
-            url = urljoin(self.url, f"api/recipes")
-            qparams = {"type": resource_type, "owner_name": owner_name, "max_count": max_count}
-            if resource_name:
-                qparams["name"] = resource_name
-            if next_last_key:
-                qparams["last_key"] = next_last_key
-            url = url + "?" + urlencode(qparams)
+            url = base_url + "?" + urlencode(qparams)
             response = requests.get(url, headers=self.settings.headers)
             if not response.ok:
-                raise SaturnHTTPError(response.reason, status_code=response.status_code)
+                raise SaturnHTTPError.from_response(response)
             data = response.json()
             recipes.extend(data["recipes"])
             next_last_key = data.get("next_last_key", None)
             if next_last_key is None:
                 break
+            qparams["last_key"] = next_last_key
+
+        if status:
+            if isinstance(status, str):
+                status = {status}
+            elif not isinstance(status, set):
+                status = set(status)
+            recipes = [r for r in recipes if r.get("state", {}).get("status") in status]
         return recipes
 
-    def list_deployments(self, owner_name: str = None) -> List[Any]:
-        if owner_name is None:
-            owner_name = self.current_user["username"]
-        return self._get_recipes(ResourceType.DEPLOYMENT, owner_name=owner_name)
+    def get_resource(
+        self,
+        resource_type: str,
+        resource_name: str,
+        owner_name: str = None,
+        as_template: bool = False,
+    ) -> Dict[str, Any]:
+        resource_type = ResourceType.lookup(resource_type)
+        url = urljoin(self.url, f"api/recipes/{resource_type}/{resource_name}")
+        qparams = {}
+        if owner_name:
+            qparams["owner_name"] = owner_name
+        if as_template:
+            qparams["as_template"] = True
+        url = url + "?" + urlencode(qparams)
 
-    def list_jobs(self, owner_name: str = None) -> List[Any]:
-        if owner_name is None:
-            owner_name = self.current_user["username"]
-        return self._get_recipes(ResourceType.JOB, owner_name=owner_name)
+        response = requests.get(url, headers=self.settings.headers)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        return response.json()
 
-    def list_workspaces(self, owner_name: str = None) -> List[Any]:
-        if owner_name is None:
-            owner_name = self.current_user["username"]
-        return self._get_recipes(ResourceType.WORKSPACE, owner_name=owner_name)
+    def get_logs(
+        self,
+        resource_type: str,
+        resource_name: str,
+        owner_name: Optional[str] = None,
+        pod_name: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        source: Optional[str] = None,
+        all_containers: bool = False,
+    ) -> str:
+        resource_type = ResourceType.lookup(resource_type)
+        if source:
+            source = DataSource.lookup(source)
+        if not resource_id:
+            resource = self.get_resource(resource_type, resource_name, owner_name=owner_name)
+            resource_id = resource["state"]["id"]
 
-    def _get_resource_by_name(self, resource_type: str, resource_name: str, owner_name: str = None):
-        """
-        Currently - no way to query resource by name
-        """
-        recipes = self._get_recipes(
-            resource_type, resource_name=resource_name, owner_name=owner_name
-        )
-        if len(recipes) == 0:
-            raise SaturnError(f"Resource not found {owner_name}/{resource_name}")
-        return recipes[0]
+        if pod_name:
+            if not source or source == DataSource.LIVE:
+                pod_summary = self._get_pod_runtime_summary(pod_name, resource_id=resource_id)
+                if is_live(pod_summary):
+                    return format_logs(pod_summary, all_containers=all_containers)
+            if not source or source == DataSource.HISTORICAL:
+                return self._get_historical_pod_logs(resource_type, resource_id, pod_name)
+            return ""
+
+        if not source or source == DataSource.LIVE:
+            # Search for latest live pod
+            pods = self._get_live_pods(resource_type, resource_id)
+            if len(pods) > 0:
+                pod_name = pods[0]["pod_name"]
+                return self.get_logs(
+                    resource_type,
+                    resource_name,
+                    owner_name=owner_name,
+                    pod_name=pod_name,
+                    resource_id=resource_id,
+                    all_containers=all_containers,
+                )
+
+        if not source or source == DataSource.HISTORICAL:
+            # Search for latest historical pod
+            historical_pods = self._get_historical_pods(resource_type, resource_id)
+            if len(historical_pods) > 0:
+                pod_name = historical_pods[0]["pod_name"]
+                return self._get_historical_pod_logs(resource_type, resource_id, pod_name)
+        return ""
+
+    def _get_live_pod_logs(
+        self, pod_name: str, resource_id: Optional[str] = None, all_containers: bool = False
+    ) -> str:
+        pod_summary = self._get_pod_runtime_summary(pod_name, resource_id=resource_id)
+        return format_logs(pod_summary, all_containers=all_containers)
+
+    def _get_historical_pod_logs(self, resource_type: str, resource_id: str, pod_name: str) -> str:
+        api_name = ResourceType.get_url_name(resource_type)
+        url = urljoin(self.url, f"api/{api_name}/{resource_id}/logs?pod_name={pod_name}")
+        response = requests.get(url, headers=self.settings.headers)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        result = response.json()
+        return format_historical_logs(pod_name, result["logs"])
 
     def get_pods(
-        self, resource_type: str, resource_name: str, owner_name: str = None
+        self,
+        resource_type: str,
+        resource_name: str,
+        owner_name: Optional[str] = None,
+        source: Optional[str] = None,
+        status: Optional[Union[str, Iterable[str]]] = None,
     ) -> List[Dict[str, Any]]:
-        resource = self._get_resource_by_name(resource_type, resource_name, owner_name)
-        return self._get_pods(resource_type, resource["state"]["id"])
+        resource_type = ResourceType.lookup(resource_type)
+        if source:
+            source = DataSource.lookup(source)
 
-    def _get_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
+        resource = self.get_resource(resource_type, resource_name, owner_name)
+        resource_id = resource["state"]["id"]
+        if source is None:
+            pods = self._get_all_pods(resource_type, resource_id)
+        elif source == DataSource.LIVE:
+            pods = self._get_live_pods(resource_type, resource_id)
+        else:
+            pods = self._get_historical_pods(resource_type, resource_id)
+
+        if status:
+            if isinstance(status, str):
+                status = {status}
+            elif not isinstance(status, set):
+                status = set(status)
+            pods = [p for p in pods if p.get("status") in status]
+        return pods
+
+    def _get_all_pods(
+        self,
+        resource_type: str,
+        resource_id: str,
+    ) -> List[Dict[str, Any]]:
         historical_pods = self._get_historical_pods(resource_type, resource_id)
         live_pods = self._get_live_pods(resource_type, resource_id)
         live_pod_names = set(x["pod_name"] for x in live_pods)
@@ -310,11 +446,11 @@ class SaturnConnection:
         url = urljoin(self.url, f"api/{api_name}/{resource_id}/history")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
+            raise SaturnHTTPError.from_response(response)
         result = response.json()["pods"]
         for p in result:
             p["source"] = "historical"
-        result = sorted(result, key=lambda x: (x["start_time"], x["pod_name"]), reverse=True)
+        result = sorted(result, key=lambda x: (x["start_time"] or "", x["pod_name"]), reverse=True)
         return result
 
     def _get_live_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
@@ -322,7 +458,7 @@ class SaturnConnection:
         url = urljoin(self.url, f"api/{api_name}/{resource_id}/runtimesummary")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
+            raise SaturnHTTPError.from_response(response)
         result = response.json()
         live_pods = []
         if "job_summaries" in result:
@@ -333,7 +469,7 @@ class SaturnConnection:
             pod_summaries = result.get("pod_summaries", [])
         for pod in pod_summaries:
             end_time = pod.get("completed_at", "")
-            start_time = pod["started_at"]
+            start_time = pod.get("started_at", "")
             status = pod["status"]
             pod_name = pod["name"]
             last_seen = utcnow()
@@ -352,165 +488,71 @@ class SaturnConnection:
         live_pods = sorted(live_pods, key=lambda x: (x["start_time"], x["pod_name"]), reverse=True)
         return live_pods
 
-    def _get_live_pod_logs(self, pod_name: str) -> str:
+    def _get_pod_runtime_summary(
+        self, pod_name: str, resource_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         url = urljoin(self.url, f"api/pod/namespace/main-namespace/name/{pod_name}/runtimesummary")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
-        result = response.json()
-        init_previous = [
-            x["previous"]["logs"] for x in result["init_container_summaries"] if x["previous"]
-        ]
-        init_previous_str = "\n".join(init_previous) if init_previous else ""
-        init_logs = [x["logs"] for x in result["init_container_summaries"] if x["logs"]]
-        init_logs_str = "\n".join(init_logs) if init_logs else ""
-        previous = [
-            x["previous"]["logs"]
-            for x in result["container_summaries"]
-            if x["previous"] and x["name"] == "main"
-        ]
-        previous_str = "\n".join(previous) if previous else ""
-        logs = [
-            x["logs"] for x in result["container_summaries"] if x["logs"] and x["name"] == "main"
-        ]
-        logs_str = "\n".join(logs) if logs else ""
-        return init_previous_str + init_logs_str + previous_str + logs_str
+            if response.status_code == 404:
+                return None
+            raise SaturnHTTPError.from_response(response)
+        pod_summary = response.json()
 
-    def _get_historical_pod_logs(self, resource_type: str, resource_id: str, pod_name: str) -> str:
-        api_name = ResourceType.get_url_name(resource_type)
-        url = urljoin(self.url, f"api/{api_name}/{resource_id}/logs?pod_name={pod_name}")
-        response = requests.get(url, headers=self.settings.headers)
-        if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
-        result = response.json()
-        return result["logs"]
-
-    def get_pod_logs(
-        self,
-        resource_type: str,
-        resource_name: str,
-        pod_name: str,
-        owner_name: Optional[str] = None,
-    ):
-        resource = self._get_resource_by_name(resource_type, resource_name, owner_name=owner_name)
-        resource_id = resource["state"]["id"]
-        live_pods = self._get_live_pods(resource_type, resource_id)
-        found = False
-        for pod in live_pods:
-            if pod["pod_name"] == pod_name:
-                found = True
-        if found:
-            logs = self._get_live_pod_logs(pod_name)
-            return logs
-        return self._get_historical_pod_logs(resource_type, resource_id, pod_name)
-
-    def get_job_logs(
-        self, resource_name: str, owner_name: str = None, rank=0
-    ) -> Tuple[str, Dict[str, Any]]:
-        """
-        This method returns logs for the most recent invocation of the job.
-
-        If you need to access previous runs - you should use get_pod_logs directly
-
-        Returns tuple (logs, pod)
-        """
-        resource_type = ResourceType.JOB
-        resource = self._get_resource_by_name(
-            ResourceType.JOB, resource_name, owner_name=owner_name
-        )
-        resource_id = resource["state"]["id"]
-        pods = self._get_pods(resource_type, resource_id)
-        if len(pods) == 0:
-            return ""
-        most_recent_job_name = pods[0]["label_job_name"]
-        job_pods = [x for x in pods if x["label_job_name"] == most_recent_job_name]
-        found_pod: Optional[Dict[str, Any]] = None
-        for pod in job_pods:
-            _, rank_str, suffix = pod["pod_name"].rsplit("-", 2)
-            rank_int = int(rank_str)
-            if rank_int == rank:
-                found_pod = pod
-        if found_pod is None:
-            raise ValueError(f"could not find job for {most_recent_job_name} with rank {rank}")
-        if found_pod["source"] == "historical":
-            logs = self._get_historical_pod_logs(resource_type, resource_id, found_pod["pod_name"])
-        else:
-            logs = self._get_live_pod_logs(found_pod["pod_name"])
-        return logs, found_pod
-
-    def get_deployment_logs(
-        self, resource_name: str, owner_name: str = None, rank=0
-    ) -> Tuple[str, Dict[str, Any]]:
-        """
-        This method will return all logs for a deployment. Deployment pods are un-ordered. In
-        order to impose a rank, we sort pods by start time.
-        """
-        resource_type = ResourceType.DEPLOYMENT
-        resource = self._get_resource_by_name(resource_type, resource_name, owner_name=owner_name)
-        resource_id = resource["state"]["id"]
-        pods = self._get_pods(resource_type, resource_id)
-        if rank >= len(pods):
-            raise SaturnError(f"could not find pod for {resource_name} with rank {rank}")
-        found_pod = pods[rank]
-        if found_pod["source"] == "historical":
-            logs = self._get_historical_pod_logs(resource_type, resource_id, found_pod["pod_name"])
-        else:
-            logs = self._get_live_pod_logs(found_pod["pod_name"])
-        return logs, found_pod
-
-    def get_workspace_logs(
-        self, resource_name: str, owner_name: str = None
-    ) -> Tuple[str, Dict[str, Any]]:
-        """
-        This method will return all logs for a workspace
-        """
-        resource_type = ResourceType.WORKSPACE
-        resource = self._get_resource_by_name(resource_type, resource_name, owner_name=owner_name)
-        resource_id = resource["state"]["id"]
-        pods = self._get_pods(resource_type, resource_id)
-        if len(pods) == 0:
-            return ""
-        found_pod = pods[0]
-        if found_pod["source"] == "historical":
-            logs = self._get_historical_pod_logs(resource_type, resource_id, found_pod["pod_name"])
-        else:
-            logs = self._get_live_pod_logs(found_pod["pod_name"])
-        return logs, found_pod
+        pod_resource_id = pod_summary.get("labels", {}).get("saturncloud.io/resource-id")
+        if resource_id and pod_resource_id != resource_id:
+            # Validate the pod is for the correct resource
+            raise ValueError(f"Unable to find pod '{pod_name}' matching this resource")
+        return pod_summary
 
     def apply(self, recipe_dict: Dict[str, Any]) -> Dict[str, Any]:
         url = urljoin(self.url, "api/recipes")
         response = requests.put(url, headers=self.settings.headers, json=recipe_dict)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
+            raise SaturnHTTPError.from_response(response)
         result = response.json()
         return result
 
-    def _start(self, resource_type: str, resource_id: str):
+    def start(self, resource_type: str, resource_id: str, debug_mode: bool = False):
         url_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{url_name}/{resource_id}/start")
+        data = {"debug_mode": True} if debug_mode else None
+        response = requests.post(url, headers=self.settings.headers, json=data)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        return response.json()
+
+    def stop(self, resource_type: str, resource_id: str):
+        url_name = ResourceType.get_url_name(resource_type)
+        url = urljoin(self.url, f"api/{url_name}/{resource_id}/stop")
         response = requests.post(url, headers=self.settings.headers)
         if not response.ok:
-            raise SaturnHTTPError(response.reason, status_code=response.status_code)
-        result = response.json()
-        return result
+            raise SaturnHTTPError.from_response(response)
+        return response.json()
 
+    def restart(self, resource_type: str, resource_id: str, debug_mode: bool = False):
+        url_name = ResourceType.get_url_name(resource_type)
+        url = urljoin(self.url, f"api/{url_name}/{resource_id}/restart")
+        data = {"debug_mode": True} if debug_mode else None
+        response = requests.post(url, headers=self.settings.headers, json=data)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        return response.json()
 
+    def schedule(self, job_id: str, cron_schedule: Optional[str] = None, disable: bool = False):
+        url_name = ResourceType.get_url_name(ResourceType.JOB)
+        base_url = urljoin(self.url, f"api/{url_name}/{job_id}")
+        if cron_schedule:
+            response = requests.patch(
+                base_url,
+                json={"cron_schedule_options": {"schedule": cron_schedule}},
+                headers=self.settings.headers,
+            )
+            if not response.ok:
+                raise SaturnHTTPError.from_response(response)
 
-def _maybe_name(_id):
-    """Return message if len of id does not match expectation (32)"""
-    if len(_id) == 32:
-        return ""
-    return "Maybe you used name rather than id?"
-
-
-def _http_error(response: requests.Response, resource_id: str):
-    """Return HTTPError from response for a resource"""
-    response_message = response.json().get(
-        "message", "saturn-client encountered an unexpected error."
-    )
-    return HTTPError(response.status_code, f"{response_message} {_maybe_name(resource_id)}")
-
-
-if __name__ == "__main__":
-    client = SaturnConnection()
-    print(client.list_workspaces())
+        url = urljoin(f"{base_url}/", "unschedule" if disable else "schedule")
+        response = requests.post(url, headers=self.settings.headers)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        return response.json()

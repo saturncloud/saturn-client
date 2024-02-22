@@ -11,3 +11,4 @@ dependencies:
   - pip:
     - black
     - pre-commit
+    - ruamel-yaml

@@ -1,14 +1,16 @@
 import json
 from enum import Enum
-from glob import has_magic
+import sys
 from typing import Any, Dict, List, Optional, Union
 
 import click
+from ruamel.yaml import YAML
 
 
-class OutputFormats(str, Enum):
+class OutputFormat(str, Enum):
     TABLE = "table"
     JSON = "json"
+    YAML = "yaml"
 
     def __str__(self) -> str:
         return str(self.value)
@@ -27,21 +29,36 @@ def print_json(data: Union[List, Dict]):
     click.echo(json.dumps(data, indent=2))
 
 
+def print_resources(resource: Union[List, Dict], output: str = OutputFormat.TABLE):
+    output = output.lower()
+    OutputFormat.validate(output)
+    if output == OutputFormat.TABLE:
+        if not isinstance(resource, list):
+            resource = [resource]
+        print_resource_table(resource)
+    elif output == OutputFormat.YAML:
+        yaml = YAML()
+        if isinstance(resource, list):
+            yaml.dump_all(resource, sys.stdout)
+        else:
+            yaml.dump(resource, sys.stdout)
+    else:
+        print_json(resource)
+
+
 def print_resource_table(
-    results: List[Dict[str, Any]],
+    resources: List[Dict[str, Any]],
 ):
     headers = ["owner", "name", "resource_type", "status", "instance_type", "instance_count", "id"]
     data: List[List[str]] = []
-    for recipe in results:
-        import pprint
-
-        spec = recipe["spec"]
-        state = recipe["state"]
-        id = state["id"]
-        owner = spec["owner"]
+    for resource in resources:
+        spec = resource["spec"]
+        state = resource.get("state", {})
+        id = state.get("id")
+        owner = spec.get("owner")
         name = spec["name"]
-        resource_type = recipe["type"]
-        status = state["status"]
+        resource_type = resource["type"]
+        status = state.get("status")
         instance_type = spec["instance_type"]
         instance_count = spec.get("instance_count", 1)
         data.append([owner, name, resource_type, status, instance_type, instance_count, id])
@@ -57,8 +74,8 @@ def print_pod_table(
         pod_name = pod["pod_name"]
         status = pod["status"]
         source = pod["source"]
-        start_time = pod["start_time"]
-        end_time = pod["end_time"] if pod["end_time"] else ""
+        start_time = pod["start_time"] or ""
+        end_time = pod["end_time"] or ""
         data.append([pod_name, status, source, start_time, end_time])
     tabulate(data, headers)
 
@@ -78,6 +95,8 @@ def tabulate(
 
     for row in data:
         for i, value in enumerate(row):
+            if value is None:
+                row[i] = value = ""
             widths[i] = max(widths[i], len(str(value)))
 
     header_format_str = ""
@@ -94,3 +113,21 @@ def tabulate(
     click.echo("-" * (sum(widths) + rpadding * (len(headers) - 1)))
     for row in data:
         click.echo(format_str.format(*row))
+
+
+def print_resource_op(
+    operation: str,
+    resource_type: str,
+    resource_name: Optional[str] = None,
+    owner_name: Optional[str] = None,
+    *args: str,
+):
+    parts = [
+        operation,
+        resource_type,
+        resource_name,
+    ]
+    if owner_name:
+        parts.append(f"for {owner_name}")
+    parts.extend(args)
+    click.echo(" ".join([p for p in parts if p]))
