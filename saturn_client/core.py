@@ -3,6 +3,7 @@
 NOTE: This is an experimental library and will likely change in
 the future
 """
+
 from fnmatch import fnmatch
 from json import JSONDecodeError
 import logging
@@ -26,10 +27,12 @@ if log.level == logging.NOTSET:
     logging.basicConfig()
     log.setLevel(logging.INFO)
 
+
 class FSCallback(FileOpCallback):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.exclude_globs = kwargs.pop('exclude_globs', [])
+        self.exclude_globs = kwargs.pop("exclude_globs", [])
+
     def wrap(self, iterable):
         for item in iterable:
             source, dest = item
@@ -251,7 +254,18 @@ class SaturnConnection:
         fs = SaturnFS()
         operation = file_op(True, False)
         callback = FSCallback(operation=operation)
-        fs.rsync(local_path, sfs_path, exclude_globs=["*.git/*", "*.idea/*", "*.mypy_cache/*", "*.pytest_cache/*", "*/__pycache__/*"], callback=callback)
+        fs.rsync(
+            local_path,
+            sfs_path,
+            exclude_globs=[
+                "*.git/*",
+                "*.idea/*",
+                "*.mypy_cache/*",
+                "*.pytest_cache/*",
+                "*/__pycache__/*",
+            ],
+            callback=callback,
+        )
         return sfs_path
 
     @property

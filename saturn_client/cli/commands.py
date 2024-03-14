@@ -1,6 +1,8 @@
 import json
 import logging
-logging.basicConfig(level=logging.DEBUG)
+import pipes
+
+from saturn_client.run import run_command, batch
 
 import sys
 from os.path import join
@@ -22,10 +24,13 @@ from saturn_client.core import (
     SaturnHTTPError,
 )
 
-logging.getLogger('fsspec.generic').setLevel(logging.DEBUG)
-logging.getLogger('fsspec').setLevel(logging.DEBUG)
-logging.getLogger('fsspec.local').setLevel(logging.DEBUG)
-logging.getLogger('saturnfs.client.saturnfs').setLevel(logging.DEBUG)
+
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("fsspec.generic").setLevel(logging.DEBUG)
+logging.getLogger("fsspec").setLevel(logging.DEBUG)
+logging.getLogger("fsspec.local").setLevel(logging.DEBUG)
+logging.getLogger("saturnfs.client.saturnfs").setLevel(logging.DEBUG)
+
 
 @click.group()
 def cli():
@@ -320,7 +325,9 @@ def start(resource_type: str, resource_name: str, owner: Optional[str] = None, d
     required=False,
     help="Resource owner name. Defaults to current auth identity.",
 )
-def delete(resource_type: str, resource_name: str, owner: Optional[str] = None, debug: bool = False):
+def delete(
+    resource_type: str, resource_name: str, owner: Optional[str] = None, debug: bool = False
+):
     """
     Start a resource
 
@@ -436,6 +443,23 @@ def schedule(
     job_id = resource["state"]["id"]
     client.schedule(job_id, cron_schedule=cron_schedule, disable=disable)
     print_resource_op("Unscheduled" if disable else "Scheduled", ResourceType.JOB, job_name, owner)
+
+
+@cli.command("run", context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
+@click.pass_context
+def run_cli(ctx):
+    args = [pipes.quote(x) for x in ctx.args]
+    cmd = " ".join(args)
+    run_command(cmd)
+
+
+@cli.command("batch")
+@click.argument("input_file")
+def batch_cli(input_file):
+    with open(input_file) as f:
+        commands = f.readlines()
+    commands = [x for x in commands if x]
+    batch(commands)
 
 
 def entrypoint():
