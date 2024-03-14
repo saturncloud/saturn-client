@@ -1,3 +1,7 @@
+import json
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 import sys
 from os.path import join
 from typing import List, Optional
@@ -18,13 +22,17 @@ from saturn_client.core import (
     SaturnHTTPError,
 )
 
+logging.getLogger('fsspec.generic').setLevel(logging.DEBUG)
+logging.getLogger('fsspec').setLevel(logging.DEBUG)
+logging.getLogger('fsspec.local').setLevel(logging.DEBUG)
+logging.getLogger('saturnfs.client.saturnfs').setLevel(logging.DEBUG)
 
 @click.group()
 def cli():
     pass
 
 
-@cli.command()
+@cli.command("list")
 @click.argument("_type", metavar="TYPE", required=True)
 @click.argument("name", default=None, required=False)
 @click.option(
@@ -47,7 +55,7 @@ def cli():
     type=click.Choice(OutputFormat.values(), case_sensitive=False),
     help="Output format. Defaults to table.",
 )
-def list(
+def list_cli(
     _type: Optional[str],
     name: Optional[str] = None,
     owner: Optional[str] = None,
@@ -226,18 +234,24 @@ def apply(input_file: str, start: bool = False, sync: List[str] = []):
     with open(input_file, "r") as f:
         yaml = YAML()
         recipe = yaml.load(f)
-
+    if isinstance(recipe["spec"].get("command", None), list):
+        recipe["spec"]["command"] = json.dumps(recipe["spec"]["command"])
     client = SaturnConnection()
     settings = client.settings
     working_directory = recipe["spec"].get("working_directory", settings.WORKING_DIRECTORY)
+    resource_name = recipe["spec"].get("name")
     commands = []
     START_STRING = "### BEGIN SATURN_CLIENT GENERATED CODE"
     END_STRING = "### BEGIN SATURN_CLIENT GENERATED CODE"
     for s in sync:
-        source, dest = s.split(":")
+        if ":" in s:
+            source, dest = s.split(":")
+        else:
+            source = dest = s
         if not dest.startswith("/"):
             dest = join(working_directory, dest)
-        sfs_path = client.upload_source(source, dest)
+        sfs_path = client.upload_source(source, resource_name, dest)
+        click.echo(f"syncing {source} to {sfs_path}")
         cmd = f"saturnfs cp --recursive {sfs_path} {dest}"
         commands.append(cmd)
     start_script = recipe["spec"].get("start_script", "")
@@ -295,6 +309,32 @@ def start(resource_type: str, resource_name: str, owner: Optional[str] = None, d
     resource_id = resource["state"]["id"]
     client.start(resource_type, resource_id, debug_mode=debug)
     print_resource_op("Started", resource_type, resource_name, owner)
+
+
+@cli.command()
+@click.argument("resource_type")
+@click.argument("resource_name")
+@click.option(
+    "--owner",
+    default=None,
+    required=False,
+    help="Resource owner name. Defaults to current auth identity.",
+)
+def delete(resource_type: str, resource_name: str, owner: Optional[str] = None, debug: bool = False):
+    """
+    Start a resource
+
+    \b
+    RESOURCE_TYPE (required):
+        deployment, job, workspace
+    RESOURCE_NAME (required):
+        Exact match on name
+    """
+    client = SaturnConnection()
+    resource = client.get_resource(resource_type, resource_name, owner_name=owner)
+    resource_id = resource["state"]["id"]
+    client.delete(resource_type, resource_id)
+    print_resource_op("Deleted", resource_type, resource_name, owner)
 
 
 @cli.command()

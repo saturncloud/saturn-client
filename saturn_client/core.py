@@ -3,6 +3,7 @@
 NOTE: This is an experimental library and will likely change in
 the future
 """
+from fnmatch import fnmatch
 from json import JSONDecodeError
 import logging
 import datetime as dt
@@ -24,6 +25,24 @@ log = logging.getLogger("saturn-client")
 if log.level == logging.NOTSET:
     logging.basicConfig()
     log.setLevel(logging.INFO)
+
+class FSCallback(FileOpCallback):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.exclude_globs = kwargs.pop('exclude_globs', [])
+    def wrap(self, iterable):
+        for item in iterable:
+            source, dest = item
+            skip = False
+            for exclude_glob in self.exclude_globs:
+                if fnmatch(source, exclude_glob):
+                    skip = True
+                    break
+            if skip:
+                continue
+            else:
+                self.relative_update()
+                yield item
 
 
 def utcnow() -> str:
@@ -228,12 +247,12 @@ class SaturnConnection:
         """
         username = self.current_user["username"]
         org_name = self.primary_org["name"]
-        sfs_path = f"{org_name}/{username}/{resource_name}{saturn_resource_path}"
+        sfs_path = f"sfs://{org_name}/{username}/{resource_name}{saturn_resource_path}"
         fs = SaturnFS()
         operation = file_op(True, False)
-        callback = FileOpCallback(operation=operation)
-        fs.put(local_path, sfs_path, recursive=True, callback=callback)
-        return "sfs://" + sfs_path
+        callback = FSCallback(operation=operation)
+        fs.rsync(local_path, sfs_path, exclude_globs=["*.git/*", "*.idea/*", "*.mypy_cache/*", "*.pytest_cache/*", "*/__pycache__/*"], callback=callback)
+        return sfs_path
 
     @property
     def current_user(self):
@@ -512,6 +531,14 @@ class SaturnConnection:
         if not response.ok:
             raise SaturnHTTPError.from_response(response)
         return response.json()
+
+    def delete(self, resource_type: str, resource_id: str, debug_mode: bool = False):
+        url_name = ResourceType.get_url_name(resource_type)
+        url = urljoin(self.url, f"api/{url_name}/{resource_id}")
+        response = requests.delete(url, headers=self.settings.headers)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        return response.status_code
 
     def stop(self, resource_type: str, resource_id: str):
         url_name = ResourceType.get_url_name(resource_type)
