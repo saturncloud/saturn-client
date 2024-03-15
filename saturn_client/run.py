@@ -1,14 +1,43 @@
 import subprocess
 import sys
 import time
+import uuid
+from dataclasses import dataclass
 
 from os.path import join, exists
 import os
 from tempfile import NamedTemporaryFile
-from typing import List
+from typing import List, Optional, Dict, Tuple
 
 import fsspec
 from saturnfs.client.saturnfs import _rsync
+
+
+@dataclass
+class Run:
+    remote_output_path: str
+    cmd: str
+    local_results_dir: str
+    @classmethod
+    def from_dict(cls, input_dict: dict):
+        return cls(**input_dict)
+
+
+@dataclass
+class Batch:
+    nprocs: int
+    runs: List[Run]
+
+    @classmethod
+    def from_dict(cls, input_dict: dict):
+        runs = []
+        for rdict in input_dict['runs']:
+            if not rdict.get('local_results_dir'):
+                rdict['local_results_dir'] = f"/tmp/{uuid.uuid4().hex}/"
+            run = Run.from_dict(rdict)
+            runs.append(run)
+        nprocs = input_dict['nprocs']
+        return cls(nprocs=nprocs, runs=runs)
 
 
 def run_command(cmd: str) -> None:
@@ -59,30 +88,28 @@ def run_command(cmd: str) -> None:
             f.write(str(exitcode))
 
 
-def dispatch(idx: int, cmd: str) -> subprocess.Popen:
+def dispatch(run: Run) -> subprocess.Popen:
     env = os.environ.copy()
-    output_path = os.environ["SATURN_RUN_REMOTE_OUTPUT_PATH"]
-    local_results_dir = os.environ["SATURN_RUN_LOCAL_RESULTS_DIR"]
-    output_path = join(output_path, str(idx))
-    local_results_dir = join(local_results_dir, str(idx))
-    env["SATURN_RUN_REMOTE_OUTPUT_PATH"] = output_path
-    env["SATURN_RUN_LOCAL_RESULTS_DIR"] = local_results_dir
+    env["SATURN_RUN_REMOTE_OUTPUT_PATH"] = run.remote_output_path
+    env["SATURN_RUN_LOCAL_RESULTS_DIR"] = run.local_results_dir
+    cmd = run.cmd
     proc = subprocess.Popen(
         f"sc run {cmd}", env=env, stdout=sys.stdout, stderr=sys.stderr, shell=True
     )
     return proc
 
 
-def batch(cmds: List[str]) -> None:
-    nprocs = int(os.environ["SATURN_RUN_NPROCS"])
-    queue = list(enumerate(cmds))
+def batch(input_dict: Dict) -> None:
+    batch = Batch.from_dict(input_dict)
+    nprocs = batch.nprocs
+    queue: List[Tuple[int, Run]] = list(enumerate(batch.runs))
     running = {}
     while True:
         if len(queue) == 0 and len(running) == 0:
             break
         if len(running) < nprocs and len(queue) > 0:
-            idx, cmd = queue.pop(0)
-            proc = dispatch(idx, cmd)
+            idx, run = queue.pop(0)
+            proc = dispatch(run)
             running[idx] = proc
         completed_idx = []
         for idx, proc in running.items():

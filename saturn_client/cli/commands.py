@@ -459,10 +459,11 @@ def run_cli(ctx):
 @cli.command("batch")
 @click.argument("input_file")
 def batch_cli(input_file):
+
     with open(input_file) as f:
-        commands = f.readlines()
-    commands = [x for x in commands if x]
-    batch(commands)
+        yaml = YAML()
+        batch_info = yaml.load(f)
+    batch(batch_info)
 
 
 def entrypoint():
