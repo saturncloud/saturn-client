@@ -247,7 +247,7 @@ def apply(input_file: str, start: bool = False, sync: List[str] = []):
     resource_name = recipe["spec"].get("name")
     commands = []
     START_STRING = "### BEGIN SATURN_CLIENT GENERATED CODE"
-    END_STRING = "### BEGIN SATURN_CLIENT GENERATED CODE"
+    END_STRING = "### END SATURN_CLIENT GENERATED CODE"
     for s in sync:
         if ":" in s:
             source, dest = s.split(":")
@@ -271,7 +271,7 @@ def apply(input_file: str, start: bool = False, sync: List[str] = []):
         stop = ending_index + len(END_STRING) + 1
         start_script = start_script[:starting_index] + start_script[stop:]
     to_inject = [START_STRING] + commands + [END_STRING]
-    start_script = "\n".join(to_inject) + start_script
+    start_script = "\n".join(to_inject) + "\n" + start_script
     recipe["spec"]["start_script"] = start_script
     result = client.apply(recipe)
     resource_type = ResourceType.lookup(result["type"])
