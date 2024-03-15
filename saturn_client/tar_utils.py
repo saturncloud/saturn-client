@@ -25,4 +25,5 @@ def create_tar_archive(
                 file_path = str(os.path.join(root, file))
                 if check_exclude_globs(file_path, exclude_globs):
                     continue
-                tar.add(str(file_path), arcname=str(os.path.relpath(file_path, source_dir)))
+                print(f'adding {file_path}')
+                tar.add(file_path, arcname=str(os.path.relpath(file_path, source_dir)))
