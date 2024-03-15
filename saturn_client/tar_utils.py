@@ -16,7 +16,9 @@ def check_exclude_globs(input_string, exclude_globs) -> bool:
     return False
 
 
-def create_tar_archive(source_dir: str, output_filename: str, exclude_globs: List[str] = DEFAULT_EXCLUDE_GLOBS) -> None:
+def create_tar_archive(
+    source_dir: str, output_filename: str, exclude_globs: List[str] = DEFAULT_EXCLUDE_GLOBS
+) -> None:
     with tarfile.open(output_filename, "w:gz") as tar:
         for root, dirs, files in os.walk(source_dir):
             for file in files:
@@ -24,5 +26,3 @@ def create_tar_archive(source_dir: str, output_filename: str, exclude_globs: Lis
                 if check_exclude_globs(file_path, exclude_globs):
                     continue
                 tar.add(str(file_path), arcname=str(os.path.relpath(file_path, source_dir)))
-
-

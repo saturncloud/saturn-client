@@ -19,7 +19,7 @@ from urllib.parse import urljoin, urlencode
 
 from saturn_client.logs import format_historical_logs, format_logs, is_live
 from saturnfs import SaturnFS
-from saturnfs.cli.callback import FileOpCallback, file_op
+from saturnfs.cli.callback import FileOpCallback
 
 from .settings import Settings
 from .tar_utils import create_tar_archive
@@ -255,13 +255,17 @@ class SaturnConnection:
         sfs_path = f"sfs://{org_name}/{username}/{resource_name}{saturn_resource_path}data.tar.gz"
         with TemporaryDirectory() as d:
             output_path = join(d, "data.tar.gz")
-            create_tar_archive(local_path, output_path, exclude_globs=[
-                "*.git/*",
-                "*.idea/*",
-                "*.mypy_cache/*",
-                "*.pytest_cache/*",
-                "*/__pycache__/*",
-            ])
+            create_tar_archive(
+                local_path,
+                output_path,
+                exclude_globs=[
+                    "*.git/*",
+                    "*.idea/*",
+                    "*.mypy_cache/*",
+                    "*.pytest_cache/*",
+                    "*/__pycache__/*",
+                ],
+            )
             fs = SaturnFS()
             fs.put(output_path, sfs_path)
         return sfs_path
