@@ -255,9 +255,12 @@ def apply(input_file: str, start: bool = False, sync: List[str] = []):
             source = dest = s
         if not dest.startswith("/"):
             dest = join(working_directory, dest)
+        click.echo(f"syncing {source}")
         sfs_path = client.upload_source(source, resource_name, dest)
-        click.echo(f"syncing {source} to {sfs_path}")
-        cmd = f"saturnfs cp --recursive {sfs_path} {dest}"
+        click.echo(f"synced {source} to {sfs_path}")
+        cmd = f"saturnfs cp {sfs_path} /tmp/data.tar.gz"
+        commands.append(cmd)
+        cmd = f"tar -xvzf /tmp/data.tar.gz -C {dest}"
         commands.append(cmd)
     start_script = recipe["spec"].get("start_script", "")
     starting_index = start_script.find(START_STRING)

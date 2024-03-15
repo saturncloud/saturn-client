@@ -10,6 +10,8 @@ import logging
 import datetime as dt
 from dataclasses import dataclass
 from functools import reduce
+from os.path import join
+from tempfile import TemporaryDirectory
 
 import requests
 from typing import Any, Dict, Iterable, List, Optional, Union
@@ -20,7 +22,7 @@ from saturnfs import SaturnFS
 from saturnfs.cli.callback import FileOpCallback, file_op
 
 from .settings import Settings
-
+from .tar_utils import create_tar_archive
 
 log = logging.getLogger("saturn-client")
 if log.level == logging.NOTSET:
@@ -250,22 +252,18 @@ class SaturnConnection:
         """
         username = self.current_user["username"]
         org_name = self.primary_org["name"]
-        sfs_path = f"sfs://{org_name}/{username}/{resource_name}{saturn_resource_path}"
-        fs = SaturnFS()
-        operation = file_op(True, False)
-        callback = FSCallback(operation=operation)
-        fs.rsync(
-            local_path,
-            sfs_path,
-            exclude_globs=[
+        sfs_path = f"sfs://{org_name}/{username}/{resource_name}{saturn_resource_path}data.tar.gz"
+        with TemporaryDirectory() as d:
+            output_path = join(d, "data.tar.gz")
+            create_tar_archive(local_path, output_path, exclude_globs=[
                 "*.git/*",
                 "*.idea/*",
                 "*.mypy_cache/*",
                 "*.pytest_cache/*",
                 "*/__pycache__/*",
-            ],
-            callback=callback,
-        )
+            ])
+            fs = SaturnFS()
+            fs.put(output_path, sfs_path)
         return sfs_path
 
     @property
