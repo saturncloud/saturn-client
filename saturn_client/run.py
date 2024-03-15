@@ -10,6 +10,7 @@ from tempfile import NamedTemporaryFile
 from typing import List, Optional, Dict, Tuple
 
 import fsspec
+import fsspec.generic
 from saturnfs.client.saturnfs import _rsync
 
 
@@ -44,7 +45,9 @@ def run_command(cmd: str) -> None:
     output_path = os.environ["SATURN_RUN_REMOTE_OUTPUT_PATH"]
     local_results_dir = os.environ["SATURN_RUN_LOCAL_RESULTS_DIR"]
     os.makedirs(local_results_dir, exist_ok=True)
+    fs = fsspec.generic.GenericFileSystem()
     remote_results_dir = join(output_path, "results")
+    fs.makedirs(remote_results_dir, exists_ok=True)
     remote_status_code_path = join(output_path, "status_code")
     stdout_remote = join(output_path, "stdout")
     stderr_remote = join(output_path, "stderr")
