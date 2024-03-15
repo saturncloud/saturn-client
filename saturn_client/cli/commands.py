@@ -260,6 +260,8 @@ def apply(input_file: str, start: bool = False, sync: List[str] = []):
         click.echo(f"synced {source} to {sfs_path}")
         cmd = f"saturnfs cp {sfs_path} /tmp/data.tar.gz"
         commands.append(cmd)
+        cmd = f"mkdir -p {dest}"
+        commands.append(cmd)
         cmd = f"tar -xvzf /tmp/data.tar.gz -C {dest}"
         commands.append(cmd)
     start_script = recipe["spec"].get("start_script", "")

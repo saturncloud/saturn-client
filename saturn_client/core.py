@@ -264,6 +264,7 @@ class SaturnConnection:
                     "*.mypy_cache/*",
                     "*.pytest_cache/*",
                     "*/__pycache__/*",
+                    "*/.ipynb_checkpoints/*",
                 ],
             )
             fs = SaturnFS()
