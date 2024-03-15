@@ -43,6 +43,7 @@ class Batch:
 def run_command(cmd: str) -> None:
     output_path = os.environ["SATURN_RUN_REMOTE_OUTPUT_PATH"]
     local_results_dir = os.environ["SATURN_RUN_LOCAL_RESULTS_DIR"]
+    os.makedirs(local_results_dir, exist_ok=True)
     remote_results_dir = join(output_path, "results")
     remote_status_code_path = join(output_path, "status_code")
     stdout_remote = join(output_path, "stdout")

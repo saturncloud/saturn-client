@@ -262,7 +262,6 @@ def apply(input_file: str, start: bool = False, sync: List[str] = []):
         commands.append(cmd)
         cmd = f"mkdir -p {dest}"
         commands.append(cmd)
-        cmd = f"sudo chown -R jovyan:jovyan {dest}"
         commands.append(cmd)
         cmd = f"tar -xvzf /tmp/data.tar.gz -C {dest}"
         commands.append(cmd)
