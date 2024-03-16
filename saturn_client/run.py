@@ -47,7 +47,8 @@ def run_command(cmd: str) -> None:
     os.makedirs(local_results_dir, exist_ok=True)
     fs = fsspec.generic.GenericFileSystem()
     remote_results_dir = join(output_path, "results")
-    fs.makedirs(remote_results_dir, exists_ok=True)
+    if not fs.exists(remote_results_dir):
+        fs.makedirs(remote_results_dir)
     remote_status_code_path = join(output_path, "status_code")
     stdout_remote = join(output_path, "stdout")
     stderr_remote = join(output_path, "stderr")
