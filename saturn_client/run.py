@@ -2,7 +2,7 @@ import subprocess
 import sys
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 from os.path import join, exists
 import os
@@ -201,7 +201,7 @@ def split(
         remote_fpath = join(remote_commands_directory, f"{idx}.yaml")
         sub = Batch(nprocs=batch.nprocs, runs=chunk, remote_output_path=batch.remote_output_path)
         with open(fpath, "w+") as f:
-            yaml.dump(sub, f)
+            yaml.dump(asdict(sub), f)
         output_batch_files.append(remote_fpath)
     recipe["command"] = [f"sc batch {x}" for x in output_batch_files]
 
