@@ -7,11 +7,17 @@ from dataclasses import dataclass
 from os.path import join, exists
 import os
 from tempfile import NamedTemporaryFile
-from typing import List, Optional, Dict, Tuple
+from typing import List, Dict, Tuple
 
+import click
 import fsspec
+from cytoolz import partition_all
+from fsspec.generic import GenericFileSystem
+from ruamel.yaml import YAML
 import fsspec.generic
 from saturnfs.client.saturnfs import _rsync
+
+from saturn_client import settings, SaturnConnection
 
 
 @dataclass
@@ -19,6 +25,7 @@ class Run:
     remote_output_path: str
     cmd: str
     local_results_dir: str
+
     @classmethod
     def from_dict(cls, input_dict: dict):
         return cls(**input_dict)
@@ -28,17 +35,18 @@ class Run:
 class Batch:
     nprocs: int
     runs: List[Run]
+    remote_output_path: str
 
     @classmethod
     def from_dict(cls, input_dict: dict):
         runs = []
-        for rdict in input_dict['runs']:
-            if not rdict.get('local_results_dir'):
-                rdict['local_results_dir'] = f"/tmp/{uuid.uuid4().hex}/"
+        for rdict in input_dict["runs"]:
+            if not rdict.get("local_results_dir"):
+                rdict["local_results_dir"] = f"/tmp/{uuid.uuid4().hex}/"
             run = Run.from_dict(rdict)
             runs.append(run)
-        nprocs = input_dict['nprocs']
-        return cls(nprocs=nprocs, runs=runs)
+        nprocs = input_dict["nprocs"]
+        return cls(nprocs=nprocs, runs=runs, remote_output_path=input_dict["remote_output_path"])
 
 
 def run_command(cmd: str) -> None:
@@ -126,3 +134,106 @@ def batch(input_dict: Dict) -> None:
         for idx in completed_idx:
             running.pop(idx)
         time.sleep(1)
+
+
+
+def categorize_runs(
+    remote_output_path: str, runs: List[Run]
+) -> Tuple[List[Run], List[Run], List[Run]]:
+    fs = GenericFileSystem()
+    if not remote_output_path.endswith("/"):
+        remote_output_path += "/"
+    status_code_files = fs.glob(f"{remote_output_path}*/status_code")
+    status_codes = fs.cat_ranges(status_code_files, 0, None)
+    mapping = dict(zip(status_code_files, status_codes))
+    incomplete = []
+    completed = []
+    failures = []
+    for r in runs:
+        status_code_path = join(r.remote_output_path, "status_code")
+        if status_code_path not in mapping:
+            incomplete.append(r)
+            continue
+        status_code = int(mapping[status_code_path])
+        if status_code == 0:
+            completed.append(r)
+            continue
+        else:
+            failures.append(r)
+    return incomplete, failures, completed
+
+
+def split(
+    recipe: Dict,
+    batch_dict: Dict,
+    batch_size: int,
+    local_commands_directory: str,
+    remote_commands_directory: str,
+    include_completed: bool = False,
+    include_failures: bool = False,
+    max_jobs: int = -1,
+) -> None:
+    batch = Batch.from_dict(batch_dict)
+    to_execute = []
+    if include_completed or include_failures:
+        incomplete, failures, completed = categorize_runs(batch.runs)
+        click.echo(f"including {len(incomplete)} incomplete runs")
+        to_execute.extend(incomplete)
+        if include_failures:
+            click.echo(f"including {len(failures)} failed runs")
+            to_execute.extend(failures)
+        if include_completed:
+            click.echo(f"including {len(completed)} completed runs")
+            to_execute.extend((completed))
+    else:
+        click.echo(f"including {len(batch.runs)} runs")
+        to_execute.extend(batch.runs)
+    if max_jobs > 0:
+        click.echo(f"found {len(to_execute)}. Only keeping {max_jobs}")
+        to_execute = to_execute[max_jobs]
+    chunks = partition_all(batch_size, to_execute)
+    output_batch_files = []
+    yaml = YAML()
+    yaml.default_flow_style = False
+    for idx, chunk in chunks:
+        fpath = join(local_commands_directory, f"{idx}.yaml")
+        remote_fpath = join(remote_commands_directory, f"{idx}.yaml")
+        sub = Batch(nprocs=batch.nprocs, runs=chunk, remote_output_path=batch.remote_output_path)
+        with open(fpath, "w+") as f:
+            yaml.dump(sub, f)
+        output_batch_files.append(remote_fpath)
+    recipe["command"] = [f"sc batch {x}" for x in output_batch_files]
+
+
+def setup_file_syncs(recipe: Dict, sync: List[str]) -> None:
+    commands = []
+    START_STRING = "### BEGIN SATURN_CLIENT GENERATED CODE"
+    END_STRING = "### END SATURN_CLIENT GENERATED CODE"
+    working_directory = recipe["spec"].get("working_directory", settings.WORKING_DIRECTORY)
+    resource_name = recipe["spec"].get("name")
+    client = SaturnConnection()
+    for s in sync:
+        if ":" in s:
+            source, dest = s.split(":")
+        else:
+            source = dest = s
+        if not dest.startswith("/"):
+            dest = join(working_directory, dest)
+        click.echo(f"syncing {source}")
+        sfs_path = client.upload_source(source, resource_name, dest)
+        click.echo(f"synced {source} to {sfs_path}")
+        cmd = f"saturnfs cp {sfs_path} /tmp/data.tar.gz"
+        commands.append(cmd)
+        cmd = f"mkdir -p {dest}"
+        commands.append(cmd)
+        cmd = f"tar -xvzf /tmp/data.tar.gz -C {dest}"
+        commands.append(cmd)
+    start_script = recipe["spec"].get("start_script", "")
+    starting_index = start_script.find(START_STRING)
+    ending_index = start_script.find(END_STRING)
+    if starting_index >= 0 and ending_index >= 0:
+        stop = ending_index + len(END_STRING) + 1
+        start_script = start_script[:starting_index] + start_script[stop:]
+    to_inject = [START_STRING] + commands + [END_STRING]
+    start_script = "\n".join(to_inject) + "\n" + start_script
+    recipe["spec"]["start_script"] = start_script

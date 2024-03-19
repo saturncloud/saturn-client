@@ -2,7 +2,7 @@ import json
 import logging
 import pipes
 
-from saturn_client.run import run_command, batch
+from saturn_client.run import run_command, batch, setup_file_syncs
 
 import sys
 from os.path import join
@@ -241,38 +241,8 @@ def apply(input_file: str, start: bool = False, sync: List[str] = []):
         recipe = yaml.load(f)
     if isinstance(recipe["spec"].get("command", None), list):
         recipe["spec"]["command"] = json.dumps(recipe["spec"]["command"])
+    setup_file_syncs(recipe, sync)
     client = SaturnConnection()
-    settings = client.settings
-    working_directory = recipe["spec"].get("working_directory", settings.WORKING_DIRECTORY)
-    resource_name = recipe["spec"].get("name")
-    commands = []
-    START_STRING = "### BEGIN SATURN_CLIENT GENERATED CODE"
-    END_STRING = "### END SATURN_CLIENT GENERATED CODE"
-    for s in sync:
-        if ":" in s:
-            source, dest = s.split(":")
-        else:
-            source = dest = s
-        if not dest.startswith("/"):
-            dest = join(working_directory, dest)
-        click.echo(f"syncing {source}")
-        sfs_path = client.upload_source(source, resource_name, dest)
-        click.echo(f"synced {source} to {sfs_path}")
-        cmd = f"saturnfs cp {sfs_path} /tmp/data.tar.gz"
-        commands.append(cmd)
-        cmd = f"mkdir -p {dest}"
-        commands.append(cmd)
-        cmd = f"tar -xvzf /tmp/data.tar.gz -C {dest}"
-        commands.append(cmd)
-    start_script = recipe["spec"].get("start_script", "")
-    starting_index = start_script.find(START_STRING)
-    ending_index = start_script.find(END_STRING)
-    if starting_index >= 0 and ending_index >= 0:
-        stop = ending_index + len(END_STRING) + 1
-        start_script = start_script[:starting_index] + start_script[stop:]
-    to_inject = [START_STRING] + commands + [END_STRING]
-    start_script = "\n".join(to_inject) + "\n" + start_script
-    recipe["spec"]["start_script"] = start_script
     result = client.apply(recipe)
     resource_type = ResourceType.lookup(result["type"])
     resource_name = result["spec"]["name"]
@@ -461,11 +431,62 @@ def run_cli(ctx):
 @cli.command("batch")
 @click.argument("input_file")
 def batch_cli(input_file):
-
     with open(input_file) as f:
         yaml = YAML()
         batch_info = yaml.load(f)
     batch(batch_info)
+
+
+@cli.command("split")
+@click.argument("recipe_template")
+@click.argument("batch_file")
+@click.argument("batch_size", type=int)
+@click.argument("local_commands_directory")
+@click.option("--sync", multiple=True, default=[])
+@click.option("--remote-commands-directory", default=None)
+@click.option(
+    "--include-completed", is_flag=True, default=False, help="Whether to re-do completed runs"
+)
+@click.option(
+    "--include-failures", is_flag=True, default=False, help="Whether to re-do failed runs"
+)
+@click.option("--max-jobs", help="maximum number of runs that will be scheduled", type=int)
+def split(
+    recipe_template: str,
+    batch_file: str,
+    batch_size: int,
+    local_commands_directory: str,
+    sync: List[str] = [],
+    remote_commands_directory: Optional[str] = None,
+    include_completed: bool = False,
+    include_failures: bool = False,
+    max_jobs: int = -1,
+):
+    max_jobs = int(max_jobs)
+    with open(batch_file) as f:
+        yaml = YAML()
+        batch_info = yaml.load(f)
+    with open(recipe_template) as f:
+        yaml = YAML()
+        recipe = yaml.load(f)
+    if remote_commands_directory is None:
+        remote_commands_directory = local_commands_directory
+    split(
+        recipe,
+        batch_info,
+        batch_size,
+        local_commands_directory,
+        remote_commands_directory,
+        include_completed=include_completed,
+        include_failures=include_failures,
+        max_jobs=max_jobs,
+    )
+    sync.append(f"{local_commands_directory}:{remote_commands_directory}")
+    setup_file_syncs(recipe, sync)
+    with open(join(local_commands_directory, "recipe.yaml")):
+        yaml = YAML()
+        yaml.default_flow_style = False
+        yaml.dump(recipe, f)
 
 
 def entrypoint():
