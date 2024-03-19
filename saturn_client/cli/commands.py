@@ -472,6 +472,8 @@ def split_cli(
     with open(recipe_template) as f:
         yaml = YAML()
         recipe = yaml.load(f)
+    if not local_commands_directory.endswith("/"):
+        local_commands_directory += "/"
     if remote_commands_directory is None:
         remote_commands_directory = local_commands_directory
     split(
