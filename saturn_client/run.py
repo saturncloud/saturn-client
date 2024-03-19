@@ -204,7 +204,7 @@ def split(
         with open(fpath, "w+") as f:
             yaml.dump(asdict(sub), f)
         output_batch_files.append(remote_fpath)
-    recipe["command"] = [f"sc batch {x}" for x in output_batch_files]
+    recipe["spec"]["command"] = [f"sc batch {x}" for x in output_batch_files]
 
 
 def setup_file_syncs(recipe: Dict, sync: List[str]) -> None:
