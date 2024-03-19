@@ -143,6 +143,7 @@ def categorize_runs(
     fs = GenericFileSystem()
     if not remote_output_path.endswith("/"):
         remote_output_path += "/"
+    click.echo(f"gathering existing run status from {remote_output_path}")
     status_code_files = fs.glob(f"{remote_output_path}*/status_code")
     status_codes = fs.cat_ranges(status_code_files, 0, None)
     mapping = dict(zip(status_code_files, status_codes))
