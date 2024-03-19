@@ -2,7 +2,7 @@ import json
 import logging
 import pipes
 
-from saturn_client.run import run_command, batch, setup_file_syncs, split
+from saturn_client.run import batch, setup_file_syncs, split
 
 import sys
 from os.path import join
