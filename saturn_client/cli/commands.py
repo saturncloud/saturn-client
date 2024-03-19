@@ -420,14 +420,6 @@ def schedule(
     print_resource_op("Unscheduled" if disable else "Scheduled", ResourceType.JOB, job_name, owner)
 
 
-@cli.command("run", context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
-@click.pass_context
-def run_cli(ctx):
-    args = [pipes.quote(x) for x in ctx.args]
-    cmd = " ".join(args)
-    run_command(cmd)
-
-
 @cli.command("batch")
 @click.argument("input_file")
 def batch_cli(input_file):

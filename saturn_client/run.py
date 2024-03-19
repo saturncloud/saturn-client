@@ -2,6 +2,7 @@ import subprocess
 import sys
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, Future, ProcessPoolExecutor
 from dataclasses import dataclass, asdict
 
 from os.path import join, exists
@@ -50,9 +51,8 @@ class Batch:
         return cls(nprocs=nprocs, runs=runs, remote_output_path=input_dict["remote_output_path"])
 
 
-def run_command(cmd: str) -> None:
-    output_path = os.environ["SATURN_RUN_REMOTE_OUTPUT_PATH"]
-    local_results_dir = os.environ["SATURN_RUN_LOCAL_RESULTS_DIR"]
+def dispatch_thread(cmd: str, remote_output_path: str, local_results_dir: str) -> None:
+    output_path = remote_output_path
     os.makedirs(local_results_dir, exist_ok=True)
     fs = fsspec.generic.GenericFileSystem()
     remote_results_dir = join(output_path, "results")
@@ -64,6 +64,8 @@ def run_command(cmd: str) -> None:
     stdout = sys.stdout
     stderr = sys.stderr
     env = os.environ.copy()
+    env["SATURN_RUN_REMOTE_OUTPUT_PATH"] = remote_output_path
+    env["SATURN_RUN_LOCAL_RESULTS_DIR"] = local_results_dir
     try:
         stdout_local_f = NamedTemporaryFile("w+t", buffering=1)
         stderr_local_f = NamedTemporaryFile("w+t", buffering=1)
@@ -102,40 +104,16 @@ def run_command(cmd: str) -> None:
             f.write(str(exitcode))
 
 
-def dispatch(run: Run) -> subprocess.Popen:
-    env = os.environ.copy()
-    env["SATURN_RUN_REMOTE_OUTPUT_PATH"] = run.remote_output_path
-    env["SATURN_RUN_LOCAL_RESULTS_DIR"] = run.local_results_dir
-    cmd = run.cmd
-    proc = subprocess.Popen(
-        f"sc run {cmd}", env=env, stdout=sys.stdout, stderr=sys.stderr, shell=True
-    )
-    return proc
-
-
 def batch(input_dict: Dict) -> None:
     batch = Batch.from_dict(input_dict)
     nprocs = batch.nprocs
-    queue: List[Tuple[int, Run]] = list(enumerate(batch.runs))
-    running = {}
-    while True:
-        if len(queue) == 0 and len(running) == 0:
-            break
-        if len(running) < nprocs and len(queue) > 0:
-            idx, run = queue.pop(0)
-            proc = dispatch(run)
-            running[idx] = proc
-        completed_idx = []
-        for idx, proc in running.items():
-            code = proc.poll()
-            if code is None:
-                continue
-            else:
-                completed_idx.append(idx)
-        for idx in completed_idx:
-            running.pop(idx)
-        time.sleep(1)
-
+    futures: List[Future] = []
+    with ThreadPoolExecutor(nprocs) as pool:
+        for run in batch.runs:
+            fut = pool.submit(dispatch_thread, run.cmd, run.remote_output_path, run.local_results_dir)
+            futures.append(fut)
+        for fut in futures:
+            fut.result()
 
 
 def categorize_runs(
