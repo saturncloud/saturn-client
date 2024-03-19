@@ -463,9 +463,11 @@ def split(
     max_jobs: int = -1,
 ):
     max_jobs = int(max_jobs)
+    click.echo(f"reading {batch_file}")
     with open(batch_file) as f:
         yaml = YAML()
         batch_info = yaml.load(f)
+    click.echo(f"reading {recipe_template}")
     with open(recipe_template) as f:
         yaml = YAML()
         recipe = yaml.load(f)
