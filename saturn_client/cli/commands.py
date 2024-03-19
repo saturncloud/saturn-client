@@ -465,7 +465,7 @@ def split_cli(
         local_commands_directory += "/"
     if remote_commands_directory is None:
         remote_commands_directory = local_commands_directory
-    click.echo(f"splitting")
+    click.echo("splitting")
     split(
         recipe,
         batch_info,
