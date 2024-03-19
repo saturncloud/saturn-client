@@ -1,6 +1,5 @@
 import json
 import logging
-import pipes
 
 from saturn_client.run import batch, setup_file_syncs, split
 
@@ -442,7 +441,9 @@ def batch_cli(input_file):
 @click.option(
     "--include-failures", is_flag=True, default=False, help="Whether to re-do failed runs"
 )
-@click.option("--max-jobs", help="maximum number of runs that will be scheduled", type=int, default=-1)
+@click.option(
+    "--max-jobs", help="maximum number of runs that will be scheduled", type=int, default=-1
+)
 def split_cli(
     recipe_template: str,
     batch_file: str,

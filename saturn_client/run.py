@@ -1,8 +1,7 @@
 import subprocess
 import sys
-import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor, Future, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future
 from dataclasses import dataclass, asdict
 
 from os.path import join, exists
@@ -110,7 +109,9 @@ def batch(input_dict: Dict) -> None:
     futures: List[Future] = []
     with ThreadPoolExecutor(nprocs) as pool:
         for run in batch.runs:
-            fut = pool.submit(dispatch_thread, run.cmd, run.remote_output_path, run.local_results_dir)
+            fut = pool.submit(
+                dispatch_thread, run.cmd, run.remote_output_path, run.local_results_dir
+            )
             futures.append(fut)
         for fut in futures:
             fut.result()
