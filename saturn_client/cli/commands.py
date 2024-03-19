@@ -462,6 +462,7 @@ def split_cli(
     include_failures: bool = False,
     max_jobs: int = -1,
 ):
+    sync = list(sync)
     max_jobs = int(max_jobs)
     click.echo(f"reading {batch_file}")
     with open(batch_file) as f:
