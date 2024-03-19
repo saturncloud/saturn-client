@@ -486,7 +486,7 @@ def split_cli(
     )
     sync.append(f"{local_commands_directory}:{remote_commands_directory}")
     setup_file_syncs(recipe, sync)
-    with open(join(local_commands_directory, "recipe.yaml")):
+    with open(join(local_commands_directory, "recipe.yaml"), "w+") as f:
         yaml = YAML()
         yaml.default_flow_style = False
         yaml.dump(recipe, f)
