@@ -451,7 +451,7 @@ def batch_cli(input_file):
     "--include-failures", is_flag=True, default=False, help="Whether to re-do failed runs"
 )
 @click.option("--max-jobs", help="maximum number of runs that will be scheduled", type=int)
-def split(
+def split_cli(
     recipe_template: str,
     batch_file: str,
     batch_size: int,
