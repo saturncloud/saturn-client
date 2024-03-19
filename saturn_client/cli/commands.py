@@ -14,6 +14,7 @@ from saturn_client.cli.utils import (
     print_pod_table,
     print_resources,
     print_resource_op,
+    deserialize,
 )
 from saturn_client.core import (
     DataSource,
@@ -458,13 +459,9 @@ def split_cli(
     sync = list(sync)
     max_jobs = int(max_jobs)
     click.echo(f"reading {batch_file}")
-    with open(batch_file) as f:
-        yaml = YAML()
-        batch_info = yaml.load(f)
+    batch_info = deserialize(batch_file)
     click.echo(f"reading {recipe_template}")
-    with open(recipe_template) as f:
-        yaml = YAML()
-        recipe = yaml.load(f)
+    recipe = deserialize(recipe_template)
     if not local_commands_directory.endswith("/"):
         local_commands_directory += "/"
     if remote_commands_directory is None:

@@ -1,6 +1,7 @@
 import json
 from enum import Enum
 import sys
+from os.path import splitext
 from typing import Any, Dict, List, Optional, Union
 
 import click
@@ -131,3 +132,12 @@ def print_resource_op(
         parts.append(f"for {owner_name}")
     parts.extend(args)
     click.echo(" ".join([p for p in parts if p]))
+
+
+def deserialize(path: str) -> Dict:
+    base, ext = splitext(path)
+    with open(path, "r") as f:
+        if ext in {"yml", "yaml"}:
+            yaml = YAML()
+            return yaml.load(f)
+        return json.load(f)
