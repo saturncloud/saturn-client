@@ -181,6 +181,7 @@ def split(
     output_batch_files = []
     yaml = YAML()
     yaml.default_flow_style = False
+    os.makedirs(local_commands_directory, exist_ok=True)
     for idx, chunk in enumerate(chunks):
         fpath = join(local_commands_directory, f"{idx}.json")
         remote_fpath = join(remote_commands_directory, f"{idx}.json")
