@@ -158,7 +158,7 @@ def split(
     batch = Batch.from_dict(batch_dict)
     to_execute = []
     if not include_completed or not include_failures:
-        incomplete, failures, completed = categorize_runs(batch.runs)
+        incomplete, failures, completed = categorize_runs(batch.remote_output_path, batch.runs)
         click.echo(f"including {len(incomplete)} incomplete runs")
         to_execute.extend(incomplete)
         if include_failures:
