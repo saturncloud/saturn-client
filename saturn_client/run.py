@@ -17,7 +17,8 @@ from ruamel.yaml import YAML
 import fsspec.generic
 from saturnfs.client.saturnfs import _rsync
 
-from saturn_client import settings, SaturnConnection
+from saturn_client import SaturnConnection
+from saturn_client.settings import Settings
 
 
 @dataclass
@@ -210,7 +211,7 @@ def setup_file_syncs(recipe: Dict, sync: List[str]) -> None:
     commands = []
     START_STRING = "### BEGIN SATURN_CLIENT GENERATED CODE"
     END_STRING = "### END SATURN_CLIENT GENERATED CODE"
-    working_directory = recipe["spec"].get("working_directory", settings.WORKING_DIRECTORY)
+    working_directory = recipe["spec"].get("working_directory", Settings.WORKING_DIRECTORY)
     resource_name = recipe["spec"].get("name")
     client = SaturnConnection()
     for s in sync:
