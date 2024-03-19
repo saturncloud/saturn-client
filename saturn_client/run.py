@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 import uuid
@@ -177,11 +178,11 @@ def split(
     yaml = YAML()
     yaml.default_flow_style = False
     for idx, chunk in enumerate(chunks):
-        fpath = join(local_commands_directory, f"{idx}.yaml")
-        remote_fpath = join(remote_commands_directory, f"{idx}.yaml")
+        fpath = join(local_commands_directory, f"{idx}.json")
+        remote_fpath = join(remote_commands_directory, f"{idx}.json")
         sub = Batch(nprocs=batch.nprocs, runs=chunk, remote_output_path=batch.remote_output_path)
         with open(fpath, "w+") as f:
-            yaml.dump(asdict(sub), f)
+            json.dump(asdict(sub), f)
         output_batch_files.append(remote_fpath)
     recipe["spec"]["command"] = [f"sc batch {x}" for x in output_batch_files]
 

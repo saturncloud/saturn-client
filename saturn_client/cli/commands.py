@@ -423,9 +423,7 @@ def schedule(
 @cli.command("batch")
 @click.argument("input_file")
 def batch_cli(input_file):
-    with open(input_file) as f:
-        yaml = YAML()
-        batch_info = yaml.load(f)
+    batch_info = deserialize(input_file)
     batch(batch_info)
 
 
