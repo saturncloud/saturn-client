@@ -196,7 +196,7 @@ def split(
     output_batch_files = []
     yaml = YAML()
     yaml.default_flow_style = False
-    for idx, chunk in chunks:
+    for idx, chunk in enumerate(chunks):
         fpath = join(local_commands_directory, f"{idx}.yaml")
         remote_fpath = join(remote_commands_directory, f"{idx}.yaml")
         sub = Batch(nprocs=batch.nprocs, runs=chunk, remote_output_path=batch.remote_output_path)
