@@ -164,9 +164,13 @@ def split(
         if include_failures:
             click.echo(f"including {len(failures)} failed runs")
             to_execute.extend(failures)
+        else:
+            click.echo(f"skipping {len(failures)} failed runs")
         if include_completed:
             click.echo(f"including {len(completed)} completed runs")
             to_execute.extend((completed))
+        else:
+            click.echo(f"skipping {len(completed)} completed runs")
     else:
         click.echo(f"including {len(batch.runs)} runs")
         to_execute.extend(batch.runs)
