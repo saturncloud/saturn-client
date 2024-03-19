@@ -191,7 +191,7 @@ def split(
         to_execute.extend(batch.runs)
     if max_jobs > 0:
         click.echo(f"found {len(to_execute)}. Only keeping {max_jobs}")
-        to_execute = to_execute[max_jobs]
+        to_execute = to_execute[:max_jobs]
     chunks = partition_all(batch_size, to_execute)
     output_batch_files = []
     yaml = YAML()
