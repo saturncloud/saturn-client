@@ -241,7 +241,8 @@ def apply(input_file: str, start: bool = False, sync: List[str] = []):
         recipe = yaml.load(f)
     if isinstance(recipe["spec"].get("command", None), list):
         recipe["spec"]["command"] = json.dumps(recipe["spec"]["command"])
-    setup_file_syncs(recipe, sync)
+    if sync:
+        setup_file_syncs(recipe, sync)
     client = SaturnConnection()
     result = client.apply(recipe)
     resource_type = ResourceType.lookup(result["type"])
@@ -464,6 +465,7 @@ def split_cli(
         local_commands_directory += "/"
     if remote_commands_directory is None:
         remote_commands_directory = local_commands_directory
+    click.echo(f"splitting")
     split(
         recipe,
         batch_info,
