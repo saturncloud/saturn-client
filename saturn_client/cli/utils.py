@@ -137,7 +137,7 @@ def print_resource_op(
 def deserialize(path: str) -> Dict:
     base, ext = splitext(path)
     with open(path, "r") as f:
-        if ext in {"yml", "yaml"}:
+        if ext in {".yml", ".yaml"}:
             yaml = YAML()
             return yaml.load(f)
         return json.load(f)
