@@ -3,23 +3,51 @@
 NOTE: This is an experimental library and will likely change in
 the future
 """
+
+from fnmatch import fnmatch
 from json import JSONDecodeError
 import logging
 import datetime as dt
 from dataclasses import dataclass
 from functools import reduce
+from os.path import join
+from tempfile import TemporaryDirectory
+
 import requests
 from typing import Any, Dict, Iterable, List, Optional, Union
 from urllib.parse import urljoin, urlencode
 
-from saturn_client.settings import Settings
 from saturn_client.logs import format_historical_logs, format_logs, is_live
+from saturnfs import SaturnFS
+from saturnfs.cli.callback import FileOpCallback
 
+from .settings import Settings
+from .tar_utils import create_tar_archive
 
 log = logging.getLogger("saturn-client")
 if log.level == logging.NOTSET:
     logging.basicConfig()
     log.setLevel(logging.INFO)
+
+
+class FSCallback(FileOpCallback):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.exclude_globs = kwargs.pop("exclude_globs", [])
+
+    def wrap(self, iterable):
+        for item in iterable:
+            source, dest = item
+            skip = False
+            for exclude_glob in self.exclude_globs:
+                if fnmatch(source, exclude_glob):
+                    skip = True
+                    break
+            if skip:
+                continue
+            else:
+                self.relative_update()
+                yield item
 
 
 def utcnow() -> str:
@@ -197,6 +225,51 @@ class SaturnConnection:
 
         # test connection to raise errors early
         self._saturn_version = self._get_saturn_version()
+
+    @property
+    def orgs(self) -> List[Dict[str, Any]]:
+        url = urljoin(self.url, "api/orgs")
+        response = requests.get(url, headers=self.settings.headers)
+        if not response.ok:
+            raise ValueError(response.reason)
+        return response.json()["orgs"]
+
+    @property
+    def primary_org(self) -> Dict[str, Any]:
+        orgs = self.orgs
+        primary_org = None
+        for o in orgs:
+            if o["is_primary"]:
+                primary_org = o
+        if primary_org:
+            return primary_org
+        raise ValueError("primary organization not found")
+
+    def upload_source(self, local_path: str, resource_name: str, saturn_resource_path: str) -> str:
+        """
+        This method uploads a local_path to some location in sfs, which in the future
+        will be downloaded to saturn_resource_path
+        """
+        username = self.current_user["username"]
+        org_name = self.primary_org["name"]
+        sfs_path = f"sfs://{org_name}/{username}/{resource_name}{saturn_resource_path}data.tar.gz"
+        with TemporaryDirectory() as d:
+            output_path = join(d, "data.tar.gz")
+            create_tar_archive(
+                local_path,
+                output_path,
+                exclude_globs=[
+                    "*.git/*",
+                    "*.idea/*",
+                    "*.mypy_cache/*",
+                    "*.pytest_cache/*",
+                    "*/__pycache__/*",
+                    "*/.ipynb_checkpoints/*",
+                ],
+            )
+            fs = SaturnFS()
+            fs.put(output_path, sfs_path)
+        return sfs_path
 
     @property
     def current_user(self):
@@ -475,6 +548,14 @@ class SaturnConnection:
         if not response.ok:
             raise SaturnHTTPError.from_response(response)
         return response.json()
+
+    def delete(self, resource_type: str, resource_id: str, debug_mode: bool = False):
+        url_name = ResourceType.get_url_name(resource_type)
+        url = urljoin(self.url, f"api/{url_name}/{resource_id}")
+        response = requests.delete(url, headers=self.settings.headers)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        return response.status_code
 
     def stop(self, resource_type: str, resource_id: str):
         url_name = ResourceType.get_url_name(resource_type)

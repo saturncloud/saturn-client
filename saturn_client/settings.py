@@ -17,6 +17,7 @@ class Settings:
 
     SATURN_TOKEN: str
     BASE_URL: str
+    WORKING_DIRECTORY: str = "/home/jovyan/workspace"
 
     def __init__(
         self,

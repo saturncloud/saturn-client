@@ -1,4 +1,10 @@
+import json
+import logging
+
+from saturn_client.run import batch, setup_file_syncs, split
+
 import sys
+from os.path import join
 from typing import List, Optional
 from ruamel.yaml import YAML
 import click
@@ -8,6 +14,7 @@ from saturn_client.cli.utils import (
     print_pod_table,
     print_resources,
     print_resource_op,
+    deserialize,
 )
 from saturn_client.core import (
     DataSource,
@@ -18,12 +25,19 @@ from saturn_client.core import (
 )
 
 
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("fsspec.generic").setLevel(logging.DEBUG)
+logging.getLogger("fsspec").setLevel(logging.DEBUG)
+logging.getLogger("fsspec.local").setLevel(logging.DEBUG)
+logging.getLogger("saturnfs.client.saturnfs").setLevel(logging.DEBUG)
+
+
 @click.group()
 def cli():
     pass
 
 
-@cli.command()
+@cli.command("list")
 @click.argument("_type", metavar="TYPE", required=True)
 @click.argument("name", default=None, required=False)
 @click.option(
@@ -46,7 +60,7 @@ def cli():
     type=click.Choice(OutputFormat.values(), case_sensitive=False),
     help="Output format. Defaults to table.",
 )
-def list(
+def list_cli(
     _type: Optional[str],
     name: Optional[str] = None,
     owner: Optional[str] = None,
@@ -212,7 +226,8 @@ def logs(
 @click.option(
     "--start", is_flag=True, help="Start the resource after creating/updating it with the recipe"
 )
-def apply(input_file: str, start: bool = False):
+@click.option("--sync", multiple=True, default=[])
+def apply(input_file: str, start: bool = False, sync: List[str] = []):
     """
     Create or update the contents of a resource recipe.
 
@@ -220,11 +235,16 @@ def apply(input_file: str, start: bool = False):
     INPUT_FILE (required):
         Path to a YAML or JSON recipe file
     """
+    recipe = None
     with open(input_file, "r") as f:
         yaml = YAML()
-        obj = yaml.load(f)
+        recipe = yaml.load(f)
+    if isinstance(recipe["spec"].get("command", None), list):
+        recipe["spec"]["command"] = json.dumps(recipe["spec"]["command"])
+    if sync:
+        setup_file_syncs(recipe, sync)
     client = SaturnConnection()
-    result = client.apply(obj)
+    result = client.apply(recipe)
     resource_type = ResourceType.lookup(result["type"])
     resource_name = result["spec"]["name"]
     owner_name = result["spec"]["owner"]
@@ -270,6 +290,34 @@ def start(resource_type: str, resource_name: str, owner: Optional[str] = None, d
     resource_id = resource["state"]["id"]
     client.start(resource_type, resource_id, debug_mode=debug)
     print_resource_op("Started", resource_type, resource_name, owner)
+
+
+@cli.command()
+@click.argument("resource_type")
+@click.argument("resource_name")
+@click.option(
+    "--owner",
+    default=None,
+    required=False,
+    help="Resource owner name. Defaults to current auth identity.",
+)
+def delete(
+    resource_type: str, resource_name: str, owner: Optional[str] = None, debug: bool = False
+):
+    """
+    Start a resource
+
+    \b
+    RESOURCE_TYPE (required):
+        deployment, job, workspace
+    RESOURCE_NAME (required):
+        Exact match on name
+    """
+    client = SaturnConnection()
+    resource = client.get_resource(resource_type, resource_name, owner_name=owner)
+    resource_id = resource["state"]["id"]
+    client.delete(resource_type, resource_id)
+    print_resource_op("Deleted", resource_type, resource_name, owner)
 
 
 @cli.command()
@@ -361,7 +409,8 @@ def schedule(
     JOB_NAME (required):
         Exact match on name
     CRON_SCHEDULE (optional):
-        Update the job's schedule before enabling. May be provided in cron format, or using special @ tags.
+        Update the job's schedule before enabling.
+        May be provided in cron format, or using special @ tags.
             Predefined: @hourly, @daily, @midnight, @weekly, @monthly, @yearly
             Interval: @every <duration> (e.g. "@every 4h")
     """
@@ -370,6 +419,69 @@ def schedule(
     job_id = resource["state"]["id"]
     client.schedule(job_id, cron_schedule=cron_schedule, disable=disable)
     print_resource_op("Unscheduled" if disable else "Scheduled", ResourceType.JOB, job_name, owner)
+
+
+@cli.command("batch")
+@click.argument("input_file")
+def batch_cli(input_file):
+    batch_info = deserialize(input_file)
+    batch(batch_info)
+
+
+@cli.command("split")
+@click.argument("recipe_template")
+@click.argument("batch_file")
+@click.argument("batch_size", type=int)
+@click.argument("local_commands_directory")
+@click.option("--sync", multiple=True, default=[])
+@click.option("--remote-commands-directory", default=None)
+@click.option(
+    "--include-completed", is_flag=True, default=False, help="Whether to re-do completed runs"
+)
+@click.option(
+    "--include-failures", is_flag=True, default=False, help="Whether to re-do failed runs"
+)
+@click.option(
+    "--max-jobs", help="maximum number of runs that will be scheduled", type=int, default=-1
+)
+def split_cli(
+    recipe_template: str,
+    batch_file: str,
+    batch_size: int,
+    local_commands_directory: str,
+    sync: List[str] = [],
+    remote_commands_directory: Optional[str] = None,
+    include_completed: bool = False,
+    include_failures: bool = False,
+    max_jobs: int = -1,
+):
+    sync = list(sync)
+    max_jobs = int(max_jobs)
+    click.echo(f"reading {batch_file}")
+    batch_info = deserialize(batch_file)
+    click.echo(f"reading {recipe_template}")
+    recipe = deserialize(recipe_template)
+    if not local_commands_directory.endswith("/"):
+        local_commands_directory += "/"
+    if remote_commands_directory is None:
+        remote_commands_directory = local_commands_directory
+    click.echo("splitting")
+    split(
+        recipe,
+        batch_info,
+        batch_size,
+        local_commands_directory,
+        remote_commands_directory,
+        include_completed=include_completed,
+        include_failures=include_failures,
+        max_jobs=max_jobs,
+    )
+    sync.append(f"{local_commands_directory}:{remote_commands_directory}")
+    setup_file_syncs(recipe, sync)
+    with open(join(local_commands_directory, "recipe.yaml"), "w+") as f:
+        yaml = YAML()
+        yaml.default_flow_style = False
+        yaml.dump(recipe, f)
 
 
 def entrypoint():
