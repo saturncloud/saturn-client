@@ -436,10 +436,10 @@ def batch_cli(input_file):
 @click.option("--sync", multiple=True, default=[])
 @click.option("--remote-commands-directory", default=None)
 @click.option(
-    "--include-completed", is_flag=True, default=False, help="Whether to re-do completed runs"
+    "--skip-completed", is_flag=True, default=False, help="Whether to re-do completed runs"
 )
 @click.option(
-    "--include-failures", is_flag=True, default=False, help="Whether to re-do failed runs"
+    "--skip-failures", is_flag=True, default=False, help="Whether to re-do failed runs"
 )
 @click.option(
     "--max-jobs", help="maximum number of runs that will be scheduled", type=int, default=-1
@@ -451,8 +451,8 @@ def split_cli(
     local_commands_directory: str,
     sync: List[str] = [],
     remote_commands_directory: Optional[str] = None,
-    include_completed: bool = False,
-    include_failures: bool = False,
+    skip_completed: bool = False,
+    skip_failures: bool = False,
     max_jobs: int = -1,
 ):
     sync = list(sync)
@@ -466,6 +466,8 @@ def split_cli(
     if remote_commands_directory is None:
         remote_commands_directory = local_commands_directory
     click.echo("splitting")
+    include_completed = not skip_completed
+    include_failures = not skip_failures
     split(
         recipe,
         batch_info,
@@ -473,7 +475,7 @@ def split_cli(
         local_commands_directory,
         remote_commands_directory,
         include_completed=include_completed,
-        include_failures=include_failures,
+        include_failures=include_falures,
         max_jobs=max_jobs,
     )
     sync.append(f"{local_commands_directory}:{remote_commands_directory}")
