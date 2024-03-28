@@ -475,7 +475,7 @@ def split_cli(
         local_commands_directory,
         remote_commands_directory,
         include_completed=include_completed,
-        include_failures=include_falures,
+        include_failures=include_failures,
         max_jobs=max_jobs,
     )
     sync.append(f"{local_commands_directory}:{remote_commands_directory}")
