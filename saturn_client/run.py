@@ -27,6 +27,8 @@ class Run:
     remote_output_path: str
     cmd: str
     local_results_dir: str
+    status_code: Optional[int] = None
+    status: Optional[str] = None
 
     @classmethod
     def from_dict(cls, input_dict: dict):
@@ -49,6 +51,11 @@ class Batch:
             runs.append(run)
         nprocs = input_dict["nprocs"]
         return cls(nprocs=nprocs, runs=runs, remote_output_path=input_dict["remote_output_path"])
+
+
+class RunStatus:
+    COMPLETED = "completed"
+    ERROR = "error"
 
 
 def dispatch_thread(cmd: str, remote_output_path: str, local_results_dir: str) -> None:
@@ -137,12 +144,21 @@ def categorize_runs(
             incomplete.append(r)
             continue
         status_code = int(mapping[status_code_path])
+        r.status_code = status_code
         if status_code == 0:
+            r.status = RunStatus.COMPLETED
             completed.append(r)
             continue
         else:
+            r.status = RunStatus.ERROR
             failures.append(r)
     return incomplete, failures, completed
+
+
+def summarize_batch(batch_dict: Dict):
+    batch = Batch.from_dict(batch_dict)
+    incomplete, failures, completed = categorize_runs(batch.remote_output_path, batch.runs)
+    return failures + completed + incomplete
 
 
 def split(

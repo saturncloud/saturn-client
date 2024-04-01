@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 import versioneer
 
-install_requires = ["requests"]
+install_requires = ["requests", "fsspec>=2024.2"]
 
 
 setup(

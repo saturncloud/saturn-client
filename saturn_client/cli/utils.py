@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 from enum import Enum
 import sys
 from os.path import splitext
@@ -6,6 +7,8 @@ from typing import Any, Dict, List, Optional, Union
 
 import click
 from ruamel.yaml import YAML
+
+from saturn_client.run import Run
 
 
 class OutputFormat(str, Enum):
@@ -141,3 +144,13 @@ def deserialize(path: str) -> Dict:
             yaml = YAML()
             return yaml.load(f)
         return json.load(f)
+
+
+def print_run_status(runs: List[Run]):
+    headers = ["status", "status_code", "remote_output_path", "cmd"]
+    data = []
+    for r in runs:
+        d = asdict(r)
+        dd = [d[x] for x in headers]
+        data.append(dd)
+    tabulate(data, headers)

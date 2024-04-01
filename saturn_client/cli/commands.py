@@ -2,7 +2,7 @@ import json
 import logging
 import pprint
 
-from saturn_client.run import batch, setup_file_syncs, split
+from saturn_client.run import batch, setup_file_syncs, split, summarize_batch
 
 import sys
 from os.path import join
@@ -15,7 +15,7 @@ from saturn_client.cli.utils import (
     print_pod_table,
     print_resources,
     print_resource_op,
-    deserialize,
+    deserialize, print_run_status,
 )
 from saturn_client.core import (
     DataSource,
@@ -476,6 +476,15 @@ def clone_cli(
 def batch_cli(input_file):
     batch_info = deserialize(input_file)
     batch(batch_info)
+
+
+@cli.command("summarize-batch")
+@click.argument("input_file")
+def summarize_batch_cli(input_file):
+    batch_info = deserialize(input_file)
+    runs = summarize_batch(batch_info)
+    print_run_status(runs)
+
 
 @cli.command("options")
 @click.option("--option-type", default=ServerOptionTypes.SIZES)
