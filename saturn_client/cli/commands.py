@@ -1,5 +1,6 @@
 import json
 import logging
+import pprint
 
 from saturn_client.run import batch, setup_file_syncs, split
 
@@ -21,7 +22,7 @@ from saturn_client.core import (
     ResourceStatus,
     SaturnConnection,
     ResourceType,
-    SaturnHTTPError,
+    SaturnHTTPError, ServerOptionTypes,
 )
 
 
@@ -476,6 +477,14 @@ def batch_cli(input_file):
     batch_info = deserialize(input_file)
     batch(batch_info)
 
+@cli.command("options")
+@click.option("--option-type", default=ServerOptionTypes.SIZES)
+@click.option("--glob")
+def options_cli(option_type: str = ServerOptionTypes.SIZES, glob: Optional[str] = None):
+    client = SaturnConnection()
+    results = client.list_options(option_type, glob=glob)
+    for r in results:
+        click.echo(pprint.pformat(r))
 
 @cli.command("split")
 @click.argument("recipe_template")

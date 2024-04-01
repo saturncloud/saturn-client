@@ -89,6 +89,16 @@ class ResourceType:
         raise SaturnError(f'resource type "{value}" not found')
 
 
+class ServerOptionTypes:
+    AUTO_SHUTOFF = "auto_shutoff"
+    DISK_SPACE = "disk_space"
+    SIZES = "sizes"
+
+    @classmethod
+    def values(cls) -> List[str]:
+        return [cls.AUTO_SHUTOFF, cls.DISK_SPACE, cls.SIZES]
+
+
 class ResourceStatus:
     """
     Enum for resource statuses
@@ -205,6 +215,24 @@ class SaturnConnection:
 
         # test connection to raise errors early
         self._saturn_version = self._get_saturn_version()
+
+    def list_options(self, option_type: str, glob: Optional[str] = None) -> List:
+        if option_type not in ServerOptionTypes.values():
+            raise ValueError(f"unknown option {option_type}. must be one of {ServerOptionTypes.values()}")
+        url = urljoin(self.url, "api/info/servers")
+        response = requests.get(url, headers=self.settings.headers)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        results = response.json()[option_type]
+        if option_type != ServerOptionTypes.SIZES:
+            if glob:
+                results = [x for x in results if fnmatch(x, glob)]
+        else:
+            results = results.values()
+            if glob:
+                results = [x for x in results if fnmatch(x["name"], glob)]
+            results = sorted(results, key=lambda x: (x['gpu'], x['cores']))
+        return results
 
     @property
     def orgs(self) -> List[Dict[str, Any]]:
