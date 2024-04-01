@@ -50,7 +50,7 @@ def print_resources(resource: Union[List, Dict], output: str = OutputFormat.TABL
 def print_resource_table(
     resources: List[Dict[str, Any]],
 ):
-    headers = ["owner", "name", "resource_type", "status", "instance_type", "instance_count", "id"]
+    headers = ["owner", "name", "resource_type", "status", "instance_type", "scale", "id"]
     data: List[List[str]] = []
     for resource in resources:
         spec = resource["spec"]
@@ -61,8 +61,8 @@ def print_resource_table(
         resource_type = resource["type"]
         status = state.get("status")
         instance_type = spec["instance_type"]
-        instance_count = spec.get("instance_count", 1)
-        data.append([owner, name, resource_type, status, instance_type, instance_count, id])
+        scale = spec.get("scale", 1)
+        data.append([owner, name, resource_type, status, instance_type, scale, id])
     tabulate(data, headers)
 
 

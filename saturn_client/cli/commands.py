@@ -533,6 +533,71 @@ def split_cli(
         yaml.dump(recipe, f)
 
 
+@cli.command("batch")
+@click.argument("input_file")
+def batch_cli(input_file):
+    batch_info = deserialize(input_file)
+    batch(batch_info)
+
+
+@cli.command("split")
+@click.argument("recipe_template")
+@click.argument("batch_file")
+@click.argument("batch_size", type=int)
+@click.argument("local_commands_directory")
+@click.option("--sync", multiple=True, default=[])
+@click.option("--remote-commands-directory", default=None)
+@click.option(
+    "--skip-completed", is_flag=True, default=False, help="Whether to re-do completed runs"
+)
+@click.option(
+    "--skip-failures", is_flag=True, default=False, help="Whether to re-do failed runs"
+)
+@click.option(
+    "--max-jobs", help="maximum number of runs that will be scheduled", type=int, default=-1
+)
+def split_cli(
+    recipe_template: str,
+    batch_file: str,
+    batch_size: int,
+    local_commands_directory: str,
+    sync: List[str] = [],
+    remote_commands_directory: Optional[str] = None,
+    skip_completed: bool = False,
+    skip_failures: bool = False,
+    max_jobs: int = -1,
+):
+    sync = list(sync)
+    max_jobs = int(max_jobs)
+    click.echo(f"reading {batch_file}")
+    batch_info = deserialize(batch_file)
+    click.echo(f"reading {recipe_template}")
+    recipe = deserialize(recipe_template)
+    if not local_commands_directory.endswith("/"):
+        local_commands_directory += "/"
+    if remote_commands_directory is None:
+        remote_commands_directory = local_commands_directory
+    click.echo("splitting")
+    include_completed = not skip_completed
+    include_failures = not skip_failures
+    split(
+        recipe,
+        batch_info,
+        batch_size,
+        local_commands_directory,
+        remote_commands_directory,
+        include_completed=include_completed,
+        include_failures=include_failures,
+        max_jobs=max_jobs,
+    )
+    sync.append(f"{local_commands_directory}:{remote_commands_directory}")
+    setup_file_syncs(recipe, sync)
+    with open(join(local_commands_directory, "recipe.yaml"), "w+") as f:
+        yaml = YAML()
+        yaml.default_flow_style = False
+        yaml.dump(recipe, f)
+
+
 def entrypoint():
     try:
         cli(max_content_width=100)
