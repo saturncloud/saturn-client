@@ -14,7 +14,6 @@ import click
 import fsspec
 from cytoolz import partition_all
 from fsspec.generic import GenericFileSystem
-from ruamel.yaml import YAML
 import fsspec.generic
 from saturnfs.client.saturnfs import _rsync
 
@@ -203,7 +202,9 @@ def split(
     for idx, chunk in enumerate(chunks):
         fpath = join(local_commands_directory, f"{idx}.json")
         remote_fpath = join(remote_commands_directory, f"{idx}.json")
-        sub = Batch(nprocs=batch.nprocs, runs=list(chunk), remote_output_path=batch.remote_output_path)
+        sub = Batch(
+            nprocs=batch.nprocs, runs=list(chunk), remote_output_path=batch.remote_output_path
+        )
         with open(fpath, "w+") as f:
             json.dump(asdict(sub), f)
         output_batch_files.append(remote_fpath)

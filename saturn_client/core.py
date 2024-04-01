@@ -19,7 +19,6 @@ from urllib.parse import urljoin, urlencode
 
 from saturn_client.logs import format_historical_logs, format_logs, is_live
 from saturnfs import SaturnFS
-from saturnfs.cli.callback import FileOpCallback
 
 from .settings import Settings
 from .tar_utils import create_tar_archive
@@ -218,7 +217,9 @@ class SaturnConnection:
 
     def list_options(self, option_type: str, glob: Optional[str] = None) -> List:
         if option_type not in ServerOptionTypes.values():
-            raise ValueError(f"unknown option {option_type}. must be one of {ServerOptionTypes.values()}")
+            raise ValueError(
+                f"unknown option {option_type}. must be one of {ServerOptionTypes.values()}"
+            )
         url = urljoin(self.url, "api/info/servers")
         response = requests.get(url, headers=self.settings.headers)
         if not response.ok:
@@ -231,7 +232,7 @@ class SaturnConnection:
             results = results.values()
             if glob:
                 results = [x for x in results if fnmatch(x["name"], glob)]
-            results = sorted(results, key=lambda x: (x['gpu'], x['cores']))
+            results = sorted(results, key=lambda x: (x["gpu"], x["cores"]))
         return results
 
     @property

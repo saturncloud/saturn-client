@@ -15,14 +15,16 @@ from saturn_client.cli.utils import (
     print_pod_table,
     print_resources,
     print_resource_op,
-    deserialize, print_run_status,
+    deserialize,
+    print_run_status,
 )
 from saturn_client.core import (
     DataSource,
     ResourceStatus,
     SaturnConnection,
     ResourceType,
-    SaturnHTTPError, ServerOptionTypes,
+    SaturnHTTPError,
+    ServerOptionTypes,
 )
 
 
@@ -495,6 +497,7 @@ def options_cli(option_type: str = ServerOptionTypes.SIZES, glob: Optional[str] 
     for r in results:
         click.echo(pprint.pformat(r))
 
+
 @cli.command("split")
 @click.argument("recipe_template")
 @click.argument("batch_file")
@@ -505,9 +508,7 @@ def options_cli(option_type: str = ServerOptionTypes.SIZES, glob: Optional[str] 
 @click.option(
     "--skip-completed", is_flag=True, default=False, help="Whether to re-do completed runs"
 )
-@click.option(
-    "--skip-failures", is_flag=True, default=False, help="Whether to re-do failed runs"
-)
+@click.option("--skip-failures", is_flag=True, default=False, help="Whether to re-do failed runs")
 @click.option(
     "--max-jobs", help="maximum number of runs that will be scheduled", type=int, default=-1
 )
