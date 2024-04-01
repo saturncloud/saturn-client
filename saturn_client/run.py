@@ -8,7 +8,7 @@ from dataclasses import dataclass, asdict
 from os.path import join, exists
 import os
 from tempfile import NamedTemporaryFile
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 import click
 import fsspec
@@ -148,9 +148,9 @@ def categorize_runs(
 def split(
     recipe: Dict,
     batch_dict: Dict,
-    batch_size: int,
     local_commands_directory: str,
     remote_commands_directory: str,
+    batch_size: Optional[int] = None,
     include_completed: bool = False,
     include_failures: bool = False,
     max_jobs: int = -1,
@@ -177,13 +177,17 @@ def split(
     if max_jobs > 0:
         click.echo(f"found {len(to_execute)}. Only keeping {max_jobs}")
         to_execute = to_execute[:max_jobs]
-    chunks = partition_all(batch_size, to_execute)
+    if batch_size is None:
+        batch_size_int = batch.nprocs * 3
+    else:
+        batch_size_int = batch_size
+    chunks = partition_all(batch_size_int, to_execute)
     output_batch_files = []
     os.makedirs(local_commands_directory, exist_ok=True)
     for idx, chunk in enumerate(chunks):
         fpath = join(local_commands_directory, f"{idx}.json")
         remote_fpath = join(remote_commands_directory, f"{idx}.json")
-        sub = Batch(nprocs=batch.nprocs, runs=chunk, remote_output_path=batch.remote_output_path)
+        sub = Batch(nprocs=batch.nprocs, runs=list(chunk), remote_output_path=batch.remote_output_path)
         with open(fpath, "w+") as f:
             json.dump(asdict(sub), f)
         output_batch_files.append(remote_fpath)

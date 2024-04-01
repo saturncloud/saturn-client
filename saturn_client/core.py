@@ -540,6 +540,16 @@ class SaturnConnection:
         result = response.json()
         return result
 
+    def create(self, recipe_dict: Dict[str, Any], enforce_unknown=True) -> Dict[str, Any]:
+        url = urljoin(self.url, "api/recipes")
+        params = {"enforce_unknown": "true" if enforce_unknown else "false"}
+        url = f"{url}?{urlencode(params)}"
+        response = requests.post(url, headers=self.settings.headers, json=recipe_dict)
+        if not response.ok:
+            raise SaturnHTTPError.from_response(response)
+        result = response.json()
+        return result
+
     def start(self, resource_type: str, resource_id: str, debug_mode: bool = False):
         url_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{url_name}/{resource_id}/start")
@@ -591,3 +601,47 @@ class SaturnConnection:
         if not response.ok:
             raise SaturnHTTPError.from_response(response)
         return response.json()
+
+    def clone(
+        self,
+        resource_type: str,
+        resource_name: str,
+        new_resource_type: str,
+        new_resource_name: str,
+        command: Optional[str] = None,
+        ide: Optional[str] = None,
+        disk_space: Optional[str] = None,
+        owner_name: Optional[str] = None,
+    ):
+        recipe = self.get_resource(
+            resource_type, resource_name, owner_name=owner_name, as_template=True
+        )
+        routes = recipe["spec"].get("routes")
+        if routes:
+            default_port = 8000 if recipe["type"] == "deployment" else 8888
+            routes = [x for x in routes if x["container_port"] != default_port]
+            if recipe["type"] == "workspace":
+                for r in routes:
+                    if r["visibility"] != "owner" and r["visibility"] != "org":
+                        r["visibility"] = "org"
+            recipe["spec"]["routes"] = routes
+
+        viewers = recipe["spec"].get("viewers")
+        if viewers:
+            viewers = [
+                x for x in viewers if x.get("route", {}).get("container_port", None) != default_port
+            ]
+            recipe["spec"]["viewers"] = viewers
+        recipe["spec"]["name"] = new_resource_name
+        recipe["type"] = new_resource_type
+        if recipe["type"] in {"deployment", "job"}:
+            recipe["spec"]["command"] = command
+        if recipe["type"] == "job":
+            recipe["spec"]["start_dind"] = False
+        if resource_type != "workspace" and new_resource_type == "workspace":
+            for repo in recipe["spec"]["git_repositories"]:
+                repo["on_restart"] = "preserve changes"
+        if resource_type == "workspace":
+            recipe["spec"]["ide"] = ide
+            recipe["spec"]["disk_space"] = disk_space
+        return self.create(recipe, enforce_unknown=False)
