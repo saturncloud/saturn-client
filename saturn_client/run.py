@@ -8,7 +8,7 @@ from dataclasses import dataclass, asdict
 from os.path import join, exists
 import os
 from tempfile import NamedTemporaryFile
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 import click
 import fsspec
@@ -148,9 +148,9 @@ def categorize_runs(
 def split(
     recipe: Dict,
     batch_dict: Dict,
-    batch_size: int,
     local_commands_directory: str,
     remote_commands_directory: str,
+    batch_size: Optional[int] = None,
     include_completed: bool = False,
     include_failures: bool = False,
     max_jobs: int = -1,
@@ -177,6 +177,8 @@ def split(
     if max_jobs > 0:
         click.echo(f"found {len(to_execute)}. Only keeping {max_jobs}")
         to_execute = to_execute[:max_jobs]
+    if batch_size is None:
+        batch_size = batch.nprocs * 3
     chunks = partition_all(batch_size, to_execute)
     output_batch_files = []
     os.makedirs(local_commands_directory, exist_ok=True)

@@ -421,6 +421,55 @@ def schedule(
     print_resource_op("Unscheduled" if disable else "Scheduled", ResourceType.JOB, job_name, owner)
 
 
+@cli.command("clone")
+@click.argument("resource_type")
+@click.argument("resource_name")
+@click.argument("new_resource_type")
+@click.argument("new_resource_name")
+@click.option(
+    "--command",
+    default=None,
+    required=False,
+)
+@click.option(
+    "--ide",
+    default=None,
+    required=False,
+)
+@click.option(
+    "--disk-space",
+    default=None,
+    required=False,
+)
+@click.option(
+    "--owner",
+    default=None,
+    required=False,
+    help="Resource owner name. Defaults to current auth identity.",
+)
+def clone_cli(
+    resource_type: str,
+    resource_name: str,
+    new_resource_type: str,
+    new_resource_name: str,
+    command: Optional[str] = None,
+    ide: Optional[str] = None,
+    disk_space: Optional[str] = None,
+    owner: Optional[str] = None,
+):
+    client = SaturnConnection()
+    client.clone(
+        resource_type,
+        resource_name,
+        new_resource_type,
+        new_resource_name,
+        command=command,
+        ide=ide,
+        disk_space=disk_space,
+        owner_name=owner,
+    )
+
+
 @cli.command("batch")
 @click.argument("input_file")
 def batch_cli(input_file):
@@ -431,8 +480,8 @@ def batch_cli(input_file):
 @cli.command("split")
 @click.argument("recipe_template")
 @click.argument("batch_file")
-@click.argument("batch_size", type=int)
 @click.argument("local_commands_directory")
+@click.option("--batch_size", type=int, default=None)
 @click.option("--sync", multiple=True, default=[])
 @click.option("--remote-commands-directory", default=None)
 @click.option(
@@ -447,8 +496,8 @@ def batch_cli(input_file):
 def split_cli(
     recipe_template: str,
     batch_file: str,
-    batch_size: int,
     local_commands_directory: str,
+    batch_size: Optional[int],
     sync: List[str] = [],
     remote_commands_directory: Optional[str] = None,
     include_completed: bool = False,
