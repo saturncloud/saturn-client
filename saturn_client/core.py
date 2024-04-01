@@ -30,26 +30,6 @@ if log.level == logging.NOTSET:
     log.setLevel(logging.INFO)
 
 
-class FSCallback(FileOpCallback):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.exclude_globs = kwargs.pop("exclude_globs", [])
-
-    def wrap(self, iterable):
-        for item in iterable:
-            source, dest = item
-            skip = False
-            for exclude_glob in self.exclude_globs:
-                if fnmatch(source, exclude_glob):
-                    skip = True
-                    break
-            if skip:
-                continue
-            else:
-                self.relative_update()
-                yield item
-
-
 def utcnow() -> str:
     return dt.datetime.now(tz=dt.timezone.utc).isoformat()
 
