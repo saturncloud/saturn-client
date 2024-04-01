@@ -178,14 +178,16 @@ def split(
         click.echo(f"found {len(to_execute)}. Only keeping {max_jobs}")
         to_execute = to_execute[:max_jobs]
     if batch_size is None:
-        batch_size = batch.nprocs * 3
-    chunks = partition_all(batch_size, to_execute)
+        batch_size_int = batch.nprocs * 3
+    else:
+        batch_size_int = batch_size
+    chunks = partition_all(batch_size_int, to_execute)
     output_batch_files = []
     os.makedirs(local_commands_directory, exist_ok=True)
     for idx, chunk in enumerate(chunks):
         fpath = join(local_commands_directory, f"{idx}.json")
         remote_fpath = join(remote_commands_directory, f"{idx}.json")
-        sub = Batch(nprocs=batch.nprocs, runs=chunk, remote_output_path=batch.remote_output_path)
+        sub = Batch(nprocs=batch.nprocs, runs=list(chunk), remote_output_path=batch.remote_output_path)
         with open(fpath, "w+") as f:
             json.dump(asdict(sub), f)
         output_batch_files.append(remote_fpath)

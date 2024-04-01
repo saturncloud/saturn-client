@@ -481,70 +481,7 @@ def batch_cli(input_file):
 @click.argument("recipe_template")
 @click.argument("batch_file")
 @click.argument("local_commands_directory")
-@click.option("--batch_size", type=int, default=None)
-@click.option("--sync", multiple=True, default=[])
-@click.option("--remote-commands-directory", default=None)
-@click.option(
-    "--include-completed", is_flag=True, default=False, help="Whether to re-do completed runs"
-)
-@click.option(
-    "--include-failures", is_flag=True, default=False, help="Whether to re-do failed runs"
-)
-@click.option(
-    "--max-jobs", help="maximum number of runs that will be scheduled", type=int, default=-1
-)
-def split_cli(
-    recipe_template: str,
-    batch_file: str,
-    local_commands_directory: str,
-    batch_size: Optional[int],
-    sync: List[str] = [],
-    remote_commands_directory: Optional[str] = None,
-    include_completed: bool = False,
-    include_failures: bool = False,
-    max_jobs: int = -1,
-):
-    sync = list(sync)
-    max_jobs = int(max_jobs)
-    click.echo(f"reading {batch_file}")
-    batch_info = deserialize(batch_file)
-    click.echo(f"reading {recipe_template}")
-    recipe = deserialize(recipe_template)
-    if not local_commands_directory.endswith("/"):
-        local_commands_directory += "/"
-    if remote_commands_directory is None:
-        remote_commands_directory = local_commands_directory
-    click.echo("splitting")
-    split(
-        recipe,
-        batch_info,
-        batch_size,
-        local_commands_directory,
-        remote_commands_directory,
-        include_completed=include_completed,
-        include_failures=include_failures,
-        max_jobs=max_jobs,
-    )
-    sync.append(f"{local_commands_directory}:{remote_commands_directory}")
-    setup_file_syncs(recipe, sync)
-    with open(join(local_commands_directory, "recipe.yaml"), "w+") as f:
-        yaml = YAML()
-        yaml.default_flow_style = False
-        yaml.dump(recipe, f)
-
-
-@cli.command("batch")
-@click.argument("input_file")
-def batch_cli(input_file):
-    batch_info = deserialize(input_file)
-    batch(batch_info)
-
-
-@cli.command("split")
-@click.argument("recipe_template")
-@click.argument("batch_file")
-@click.argument("batch_size", type=int)
-@click.argument("local_commands_directory")
+@click.option("--batch-size", type=int, default=None)
 @click.option("--sync", multiple=True, default=[])
 @click.option("--remote-commands-directory", default=None)
 @click.option(
@@ -559,8 +496,8 @@ def batch_cli(input_file):
 def split_cli(
     recipe_template: str,
     batch_file: str,
-    batch_size: int,
     local_commands_directory: str,
+    batch_size: Optional[int] = None,
     sync: List[str] = [],
     remote_commands_directory: Optional[str] = None,
     skip_completed: bool = False,
@@ -583,9 +520,9 @@ def split_cli(
     split(
         recipe,
         batch_info,
-        batch_size,
         local_commands_directory,
         remote_commands_directory,
+        batch_size=batch_size,
         include_completed=include_completed,
         include_failures=include_failures,
         max_jobs=max_jobs,
