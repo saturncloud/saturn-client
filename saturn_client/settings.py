@@ -28,7 +28,7 @@ class Settings:
             self.BASE_URL = base_url
         else:
             try:
-                self.BASE_URL = os.environ["BASE_URL"]
+                self.BASE_URL = os.environ["SATURN_BASE_URL"]
             except KeyError as err:
                 err_msg = "Missing required value Saturn url."
                 raise RuntimeError(err_msg) from err
