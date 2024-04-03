@@ -582,7 +582,6 @@ class SaturnConnection:
         response = requests.post(url, headers=self.settings.headers)
         if not response.ok:
             raise SaturnHTTPError.from_response(response)
-        return response.json()
 
     def restart(self, resource_type: str, resource_id: str, debug_mode: bool = False):
         url_name = ResourceType.get_url_name(resource_type)
