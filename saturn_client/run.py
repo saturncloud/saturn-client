@@ -225,6 +225,10 @@ def setup_file_syncs(recipe: Dict, sync: List[str]) -> None:
             source = dest = s
         if not dest.startswith("/"):
             dest = join(working_directory, dest)
+        if not source.endswith("/"):
+            source += "/"
+        if not dest.endswith("/"):
+            dest += "/"
         click.echo(f"syncing {source}")
         sfs_path = client.upload_source(source, resource_name, dest)
         click.echo(f"synced {source} to {sfs_path}")
