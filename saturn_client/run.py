@@ -61,7 +61,7 @@ def dispatch_thread(cmd: str, remote_output_path: str, local_results_dir: str) -
     output_path = remote_output_path
     os.makedirs(local_results_dir, exist_ok=True)
     fs = fsspec.generic.GenericFileSystem()
-    remote_results_dir = join(output_path, "results")
+    remote_results_dir = join(output_path, "results/")
     if not fs.exists(remote_results_dir):
         fs.makedirs(remote_results_dir)
     remote_status_code_path = join(output_path, "status_code")
