@@ -191,8 +191,14 @@ class SaturnConnection:
     """
     Create a ``SaturnConnection`` to interact with the API.
 
+    When used with an expiring api_token and refresh_token pair tokens will automatically
+    be refreshed when an expired token response is detected, and on success the response
+    will be retried. Keep in mind that a refresh token may only be used once, and if re-use
+    is detected your API token will be invalidated.
+
     :param url: URL for the SaturnCloud instance.
     :param api_token: API token for authenticating the request to Saturn API.
+    :param refresh_token: API refresh token to re-authenticate an expired api_token.
     """
 
     _options = None
