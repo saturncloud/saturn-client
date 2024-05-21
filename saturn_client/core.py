@@ -192,7 +192,6 @@ class SaturnConnection:
 
     :param url: URL for the SaturnCloud instance.
     :param api_token: API token for authenticating the request to Saturn API.
-        Get from `/api/user/token`
     """
 
     _options = None
@@ -208,7 +207,6 @@ class SaturnConnection:
         :param url: URL for the SaturnCloud instance.
             Example: "https://app.community.saturnenterprise.io"
         :param api_token: API token for authenticating the request to Saturn API.
-            Get from ``/api/user/token``
         """
         self.settings = Settings(url, api_token)
 
