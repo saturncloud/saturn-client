@@ -54,16 +54,15 @@ class Settings:
             self.REFRESH_TOKEN = os.getenv("SATURN_REFRESH_TOKEN")
 
     def update_tokens(
-        self, access_token: Optional[str] = None, refresh_token: Optional[str] = None
+        self, access_token: str, refresh_token: Optional[str] = None
     ):
-        if access_token:
-            self.SATURN_TOKEN = access_token
-            if "SATURN_TOKEN" in os.environ:
-                os.environ["SATURN_TOKEN"] = access_token
-        if refresh_token:
-            self.REFRESH_TOKEN = refresh_token
-            if "SATURN_REFRESH_TOKEN" in os.environ:
-                os.environ["SATURN_REFRESH_TOKEN"] = refresh_token
+        self.SATURN_TOKEN = access_token
+        if "SATURN_TOKEN" in os.environ:
+            os.environ["SATURN_TOKEN"] = access_token
+
+        self.REFRESH_TOKEN = refresh_token
+        if "SATURN_REFRESH_TOKEN" in os.environ:
+            os.environ["SATURN_REFRESH_TOKEN"] = refresh_token
 
     @property
     def url(self):
