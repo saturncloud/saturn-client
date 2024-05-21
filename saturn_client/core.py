@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from functools import reduce
 from os.path import join
 from tempfile import TemporaryDirectory
+import weakref
 
 import requests
 from typing import Any, Dict, Iterable, List, Optional, Union
@@ -200,6 +201,7 @@ class SaturnConnection:
         self,
         url: Optional[str] = None,
         api_token: Optional[str] = None,
+        refresh_token: Optional[str] = None,
     ):
         """
         Create a ``SaturnConnection`` to interact with the API.
@@ -208,10 +210,21 @@ class SaturnConnection:
             Example: "https://app.community.saturnenterprise.io"
         :param api_token: API token for authenticating the request to Saturn API.
         """
-        self.settings = Settings(url, api_token)
+        self.settings = Settings(url, api_token, refresh_token)
+        self.session = SaturnSession(self.settings)
+        weakref.finalize(self, self.close)
 
         # test connection to raise errors early
         self._saturn_version = self._get_saturn_version()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+    def close(self):
+        self.session.close()
 
     def list_options(self, option_type: str, glob: Optional[str] = None) -> List:
         if option_type not in ServerOptionTypes.values():
@@ -219,9 +232,7 @@ class SaturnConnection:
                 f"unknown option {option_type}. must be one of {ServerOptionTypes.values()}"
             )
         url = urljoin(self.url, "api/info/servers")
-        response = requests.get(url, headers=self.settings.headers)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.get(url)
         results = response.json()[option_type]
         if option_type != ServerOptionTypes.SIZES:
             if glob:
@@ -236,9 +247,7 @@ class SaturnConnection:
     @property
     def orgs(self) -> List[Dict[str, Any]]:
         url = urljoin(self.url, "api/orgs")
-        response = requests.get(url, headers=self.settings.headers)
-        if not response.ok:
-            raise ValueError(response.reason)
+        response = self.session.get(url)
         return response.json()["orgs"]
 
     @property
@@ -281,9 +290,7 @@ class SaturnConnection:
     @property
     def current_user(self):
         url = urljoin(self.url, "api/user")
-        response = requests.get(url, headers=self.settings.headers)
-        if not response.ok:
-            raise ValueError(response.reason)
+        response = self.session.get(url)
         return response.json()
 
     @property
@@ -294,9 +301,7 @@ class SaturnConnection:
     def _get_saturn_version(self) -> str:
         """Get version of Saturn"""
         url = urljoin(self.url, "api/status")
-        response = requests.get(url, headers=self.settings.headers)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.get(url)
         return response.json()["version"]
 
     @property
@@ -304,9 +309,7 @@ class SaturnConnection:
         """Options for various settings"""
         if self._options is None:
             url = urljoin(self.url, "api/info/servers")
-            response = requests.get(url, headers=self.settings.headers)
-            if not response.ok:
-                raise SaturnHTTPError.from_response(response)
+            response = self.session.get(url)
             self._options = response.json()
         return self._options
 
@@ -333,9 +336,7 @@ class SaturnConnection:
         base_url = urljoin(self.url, "api/recipes")
         while True:
             url = base_url + "?" + urlencode(qparams)
-            response = requests.get(url, headers=self.settings.headers)
-            if not response.ok:
-                raise SaturnHTTPError.from_response(response)
+            response = self.session.get(url)
             data = response.json()
             recipes.extend(data["recipes"])
             next_last_key = data.get("next_last_key", None)
@@ -367,9 +368,7 @@ class SaturnConnection:
             qparams["as_template"] = True
         url = url + "?" + urlencode(qparams)
 
-        response = requests.get(url, headers=self.settings.headers)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.get(url)
         return response.json()
 
     def get_logs(
@@ -429,9 +428,7 @@ class SaturnConnection:
     def _get_historical_pod_logs(self, resource_type: str, resource_id: str, pod_name: str) -> str:
         api_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{api_name}/{resource_id}/logs?pod_name={pod_name}")
-        response = requests.get(url, headers=self.settings.headers)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.get(url)
         result = response.json()
         return format_historical_logs(pod_name, result["logs"])
 
@@ -478,9 +475,7 @@ class SaturnConnection:
     def _get_historical_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
         api_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{api_name}/{resource_id}/history")
-        response = requests.get(url, headers=self.settings.headers)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.get(url)
         result = response.json()["pods"]
         for p in result:
             p["source"] = "historical"
@@ -490,9 +485,7 @@ class SaturnConnection:
     def _get_live_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
         api_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{api_name}/{resource_id}/runtimesummary")
-        response = requests.get(url, headers=self.settings.headers)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.get(url)
         result = response.json()
         live_pods = []
         if "job_summaries" in result:
@@ -526,11 +519,11 @@ class SaturnConnection:
         self, pod_name: str, resource_id: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         url = urljoin(self.url, f"api/pod/namespace/main-namespace/name/{pod_name}/runtimesummary")
-        response = requests.get(url, headers=self.settings.headers)
-        if not response.ok:
-            if response.status_code == 404:
+        try:
+            response = self.session.get(url)
+        except SaturnHTTPError as e:
+            if e.status_code == 404:
                 return None
-            raise SaturnHTTPError.from_response(response)
         pod_summary = response.json()
 
         pod_resource_id = pod_summary.get("labels", {}).get("saturncloud.io/resource-id")
@@ -541,9 +534,7 @@ class SaturnConnection:
 
     def apply(self, recipe_dict: Dict[str, Any]) -> Dict[str, Any]:
         url = urljoin(self.url, "api/recipes")
-        response = requests.put(url, headers=self.settings.headers, json=recipe_dict)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.put(url, json=recipe_dict)
         result = response.json()
         return result
 
@@ -551,9 +542,7 @@ class SaturnConnection:
         url = urljoin(self.url, "api/recipes")
         params = {"enforce_unknown": "true" if enforce_unknown else "false"}
         url = f"{url}?{urlencode(params)}"
-        response = requests.post(url, headers=self.settings.headers, json=recipe_dict)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.post(url, json=recipe_dict)
         result = response.json()
         return result
 
@@ -561,51 +550,38 @@ class SaturnConnection:
         url_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{url_name}/{resource_id}/start")
         data = {"debug_mode": True} if debug_mode else None
-        response = requests.post(url, headers=self.settings.headers, json=data)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.post(url, json=data)
         return response.json()
 
     def delete(self, resource_type: str, resource_id: str, debug_mode: bool = False):
         url_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{url_name}/{resource_id}")
-        response = requests.delete(url, headers=self.settings.headers)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.delete(url)
         return response.status_code
 
     def stop(self, resource_type: str, resource_id: str):
         url_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{url_name}/{resource_id}/stop")
-        response = requests.post(url, headers=self.settings.headers)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        self.session.post(url)
 
     def restart(self, resource_type: str, resource_id: str, debug_mode: bool = False):
         url_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{url_name}/{resource_id}/restart")
         data = {"debug_mode": True} if debug_mode else None
-        response = requests.post(url, headers=self.settings.headers, json=data)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.post(url, json=data)
         return response.json()
 
     def schedule(self, job_id: str, cron_schedule: Optional[str] = None, disable: bool = False):
         url_name = ResourceType.get_url_name(ResourceType.JOB)
         base_url = urljoin(self.url, f"api/{url_name}/{job_id}")
         if cron_schedule:
-            response = requests.patch(
+            response = self.session.patch(
                 base_url,
                 json={"cron_schedule_options": {"schedule": cron_schedule}},
-                headers=self.settings.headers,
             )
-            if not response.ok:
-                raise SaturnHTTPError.from_response(response)
 
         url = urljoin(f"{base_url}/", "unschedule" if disable else "schedule")
-        response = requests.post(url, headers=self.settings.headers)
-        if not response.ok:
-            raise SaturnHTTPError.from_response(response)
+        response = self.session.post(url)
         return response.json()
 
     def clone(
@@ -651,3 +627,62 @@ class SaturnConnection:
             recipe["spec"]["ide"] = ide
             recipe["spec"]["disk_space"] = disk_space
         return self.create(recipe, enforce_unknown=False)
+
+
+class SaturnSession(requests.Session):
+    """
+    Session wrapper to manage refreshing tokens
+    when they expire and retrying the request.
+    """
+    def __init__(self, settings: Settings) -> None:
+        super().__init__()
+        self.settings = settings
+
+        self.headers.update(self.settings.headers)
+
+        if "response" in self.hooks:
+            response_hooks = self.hooks["response"]
+        else:
+            response_hooks = []
+            self.hooks["response"] = response_hooks
+
+        response_hooks.append(self._handle_response)
+
+    def _handle_response(
+        self, response: requests.Response, *args, **kwargs
+    ) -> Optional[requests.Response]:
+        if not response.ok:
+            if self._should_refresh(response) and self._refresh():
+                response.request.headers.update(self.headers)
+                response.request.headers["X-Saturn-Retry"] = "true"
+                return self.send(response.request)
+            raise SaturnHTTPError.from_response(response)
+        return None
+
+    def _should_refresh(self, response: requests.Response) -> bool:
+        if response.request.headers.get("X-Saturn-Retry"):
+            return False
+        if not response.request.url.startswith(self.settings.BASE_URL):
+            return False
+
+        if response.status_code == 401:
+            try:
+                return "expired" in response.json()["message"]
+            except Exception:
+                return False
+        return False
+
+    def _refresh(self) -> bool:
+        if self.settings.REFRESH_TOKEN:
+            url = urljoin(self.settings.BASE_URL, "api/auth/token")
+            data = {"grant_type": "refresh_token", "refresh_token": self.settings.REFRESH_TOKEN}
+            # Intentionally not using the current session here
+            response = requests.post(url, json=data, hooks={})
+            if response.ok:
+                token_data: Dict[str, Any] = response.json()
+                self.settings.update_tokens(
+                    token_data["access_token"], token_data.get("refresh_token")
+                )
+                self.headers.update(self.settings.headers)
+                return True
+        return False

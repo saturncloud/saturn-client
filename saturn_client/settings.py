@@ -15,14 +15,16 @@ __version__ = get_versions()["version"]
 class Settings:
     """Global settings"""
 
-    SATURN_TOKEN: str
     BASE_URL: str
+    SATURN_TOKEN: str
+    REFRESH_TOKEN: Optional[str] = None
     WORKING_DIRECTORY: str = "/home/jovyan/workspace"
 
     def __init__(
         self,
         base_url: Optional[str] = None,
         saturn_token: Optional[str] = None,
+        refresh_token: Optional[str] = None,
     ):
         if base_url:
             self.BASE_URL = base_url
@@ -45,6 +47,23 @@ class Settings:
             except KeyError as err:
                 err_msg = "Missing required value Saturn api token."
                 raise RuntimeError(err_msg) from err
+
+        if refresh_token:
+            self.REFRESH_TOKEN = refresh_token
+        else:
+            self.REFRESH_TOKEN = os.getenv("SATURN_REFRESH_TOKEN")
+
+    def update_tokens(
+        self, access_token: Optional[str] = None, refresh_token: Optional[str] = None
+    ):
+        if access_token:
+            self.SATURN_TOKEN = access_token
+            if "SATURN_TOKEN" in os.environ:
+                os.environ["SATURN_TOKEN"] = access_token
+        if refresh_token:
+            self.REFRESH_TOKEN = refresh_token
+            if "SATURN_REFRESH_TOKEN" in os.environ:
+                os.environ["SATURN_REFRESH_TOKEN"] = refresh_token
 
     @property
     def url(self):
