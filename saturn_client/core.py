@@ -19,7 +19,6 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 from urllib.parse import urljoin, urlencode
 
 from saturn_client.logs import format_historical_logs, format_logs, is_live
-from saturnfs import SaturnFS
 
 from .settings import Settings
 from .tar_utils import create_tar_archive
@@ -272,6 +271,8 @@ class SaturnConnection:
         This method uploads a local_path to some location in sfs, which in the future
         will be downloaded to saturn_resource_path
         """
+        from saturnfs import SaturnFS
+
         username = self.current_user["username"]
         org_name = self.primary_org["name"]
         sfs_path = f"sfs://{org_name}/{username}/{resource_name}{saturn_resource_path}data.tar.gz"
