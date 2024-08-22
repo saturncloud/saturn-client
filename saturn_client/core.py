@@ -231,6 +231,11 @@ class SaturnConnection:
     def close(self):
         self.session.close()
 
+    def get_size(self, size: str) -> Dict:
+        sizes = self.list_options(ServerOptionTypes.SIZES)
+        pruned = [x for x in sizes if x["name"] == size]
+        return pruned[0]
+
     def list_options(self, option_type: str, glob: Optional[str] = None) -> List:
         if option_type not in ServerOptionTypes.values():
             raise ValueError(
@@ -641,6 +646,7 @@ class SaturnSession(requests.Session):
     Session wrapper to manage refreshing tokens
     when they expire and retrying the request.
     """
+
     def __init__(self, settings: Settings) -> None:
         super().__init__()
         self.settings = settings

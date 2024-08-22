@@ -36,19 +36,21 @@ class Run:
 
 @dataclass
 class Batch:
-    nprocs: int
     runs: List[Run]
     remote_output_path: str
+    nprocs: int = 16
 
     @classmethod
     def from_dict(cls, input_dict: dict):
         runs = []
-        for rdict in input_dict["runs"]:
+        for idx, rdict in enumerate(input_dict["runs"]):
             if not rdict.get("local_results_dir"):
                 rdict["local_results_dir"] = f"/tmp/{uuid.uuid4().hex}/"
+            if not rdict.get("remote_output_path"):
+                rdict["remote_output_path"] = join(input_dict["remote_output_path"], str(idx))
             run = Run.from_dict(rdict)
             runs.append(run)
-        nprocs = input_dict["nprocs"]
+        nprocs = input_dict.get("nprocs", 16)
         return cls(nprocs=nprocs, runs=runs, remote_output_path=input_dict["remote_output_path"])
 
 
@@ -194,8 +196,10 @@ def split(
         to_execute = to_execute[:max_jobs]
     if batch_size is None:
         batch_size_int = batch.nprocs * 3
+        click.echo(f"defaulting to a batch size of 3 * nprocs = {batch_size_int}")
     else:
         batch_size_int = batch_size
+        click.echo(f"using a batch size of {batch_size_int}")
     chunks = partition_all(batch_size_int, to_execute)
     output_batch_files = []
     os.makedirs(local_commands_directory, exist_ok=True)
