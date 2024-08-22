@@ -1,11 +1,12 @@
 import json
 import logging
 import pprint
+import os
 
 from saturn_client.run import batch, setup_file_syncs, split, summarize_batch
 
 import sys
-from os.path import join
+from os.path import join, exists
 from typing import List, Optional
 from ruamel.yaml import YAML
 import click
@@ -482,8 +483,11 @@ def batch_cli(input_file):
 
 @cli.command("summarize-batch")
 @click.argument("input_file")
-def summarize_batch_cli(input_file):
+@click.option("--remote-output-path", default=None, type=str)
+def summarize_batch_cli(input_file, remote_output_path: Optional[str] = None):
     batch_info = deserialize(input_file)
+    if remote_output_path:
+        batch_info["remote_output_path"] = remote_output_path
     runs = summarize_batch(batch_info)
     print_run_status(runs)
 
@@ -501,7 +505,17 @@ def options_cli(option_type: str = ServerOptionTypes.SIZES, glob: Optional[str] 
 @cli.command("split")
 @click.argument("recipe_template")
 @click.argument("batch_file")
-@click.argument("local_commands_directory")
+@click.option("--name", default=None, type=str)
+@click.option("--remote-output-path", default=None, type=str)
+@click.option("--instance-type", default=None, type=str)
+@click.option(
+    "--nprocs",
+    default=None,
+    type=int,
+    help="Processes per machine. Defaults to number of cores for CPU instances, and number of GPUs for gpu instances",
+)
+@click.option("--scale", default=None, type=int, help="number of concurrent machines to run on")
+@click.option("--local-commands-directory", default="/tmp/commands")
 @click.option("--batch-size", type=int, default=None)
 @click.option("--sync", multiple=True, default=[])
 @click.option("--remote-commands-directory", default=None)
@@ -515,7 +529,12 @@ def options_cli(option_type: str = ServerOptionTypes.SIZES, glob: Optional[str] 
 def split_cli(
     recipe_template: str,
     batch_file: str,
-    local_commands_directory: str,
+    name: Optional[str] = None,
+    remote_output_path: Optional[str] = None,
+    instance_type: Optional[str] = None,
+    nprocs: Optional[int] = None,
+    scale: Optional[int] = None,
+    local_commands_directory: str = "/tmp/commands",
     batch_size: Optional[int] = None,
     sync: List[str] = [],
     remote_commands_directory: Optional[str] = None,
@@ -527,8 +546,36 @@ def split_cli(
     max_jobs = int(max_jobs)
     click.echo(f"reading {batch_file}")
     batch_info = deserialize(batch_file)
-    click.echo(f"reading {recipe_template}")
+    if remote_output_path:
+        batch_info["remote_output_path"] = remote_output_path
+    click.echo(f"reading" f" {recipe_template}")
     recipe = deserialize(recipe_template)
+    if instance_type is None:
+        instance_type = recipe["spec"]["instance_type"]
+        click.echo(f"using {instance_type} instance from recipe")
+    else:
+        click.echo(f"using {instance_type} instance")
+        recipe["spec"]["instance_type"] = instance_type
+
+    if "nprocs" not in batch_info:
+        if nprocs is None:
+            client = SaturnConnection()
+            size = client.get_size(instance_type)
+            if size["gpu"]:
+                click.echo(f"defaulting nprocs to GPU: {size['gpu']} ")
+                nprocs = size["gpu"]
+            else:
+                click.echo(f"defaulting nprocs to vCPU: {size['cores']} ")
+                nprocs = size["cores"]
+        batch_info["nprocs"] = nprocs
+    if name is not None:
+        recipe["spec"]["name"] = name
+        click.echo("setting name to {name}")
+    if scale is not None:
+        click.echo(f"setting scale to {scale}")
+        recipe["spec"]["scale"] = scale
+    else:
+        click.echo(f"using scale of {recipe['spec']['scale']} from the recipe")
     if not local_commands_directory.endswith("/"):
         local_commands_directory += "/"
     if remote_commands_directory is None:
@@ -536,6 +583,10 @@ def split_cli(
     click.echo("splitting")
     include_completed = not skip_completed
     include_failures = not skip_failures
+    if exists(local_commands_directory):
+        for x in os.listdir(local_commands_directory):
+            if x.endswith(".json"):
+                os.remove(join(local_commands_directory, x))
     split(
         recipe,
         batch_info,

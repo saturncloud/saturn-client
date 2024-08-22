@@ -53,9 +53,7 @@ class Settings:
         else:
             self.REFRESH_TOKEN = os.getenv("SATURN_REFRESH_TOKEN")
 
-    def update_tokens(
-        self, access_token: str, refresh_token: Optional[str] = None
-    ):
+    def update_tokens(self, access_token: str, refresh_token: Optional[str] = None):
         self.SATURN_TOKEN = access_token
         if "SATURN_TOKEN" in os.environ:
             os.environ["SATURN_TOKEN"] = access_token
