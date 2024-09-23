@@ -15,8 +15,10 @@ from tempfile import TemporaryDirectory
 import weakref
 
 import requests
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union, Generator
 from urllib.parse import urljoin, urlencode
+
+from requests import Session
 
 from saturn_client.logs import format_historical_logs, format_logs, is_live
 
@@ -186,6 +188,67 @@ class Pod:
         )
 
 
+def execute_request(
+    session: Session,
+    base_url: str,
+    path: str,
+    method: str,
+    json: Optional[dict] = None,
+    parse_response=True,
+) -> Dict[str, Any]:
+    """
+    returns the JSON response as a dict.
+    """
+    if session is None:
+        session = Session()
+    headers = {}
+    if not base_url.endswith("/"):
+        base_url += "/"
+    if path.startswith("/"):
+        path = path[1:]
+    url = f"{base_url}{path}"
+    kwargs = dict(headers=headers)
+    if json:
+        kwargs["json"] = json
+
+    result = getattr(session, method.lower())(url, **kwargs)
+    if result.status_code == 404:
+        raise SaturnHTTPError(f"{url}:404")
+    if parse_response:
+        result = result.json()
+    return result
+
+
+def paginate(
+    session: Session,
+    base_url: str,
+    field: str,
+    path: str,
+    method: str,
+) -> Generator[List[Dict[str, Any]], None, None]:
+    start = execute_request(session, base_url, path, method)
+    yield start[field]
+    if "links" in start:
+        pagination_field = "links"
+    else:
+        pagination_field = "pagination"
+    next_url = start[pagination_field].get("next")
+    while True:
+        if not next_url:
+            break
+        new_data = execute_request(
+            session, base_url, next_url, method
+        )
+        next_url = new_data[pagination_field].get("next")
+        yield new_data[field]
+
+
+def make_path(path: str, query_dict: dict) -> str:
+    if query_dict:
+        return path + "?" + urlencode(query_dict)
+    return path
+
+
 class SaturnConnection:
     """
     Create a ``SaturnConnection`` to interact with the API.
@@ -230,6 +293,43 @@ class SaturnConnection:
 
     def close(self):
         self.session.close()
+
+    def get_size(self, size: str) -> Dict:
+        sizes = self.list_options(ServerOptionTypes.SIZES)
+        pruned = [x for x in sizes if x["name"] == size]
+        return pruned[0]
+
+    def get_all_users(self, org_id: Optional[str] = None) -> List[str]:
+        params = {"page_size": "1"}
+        if org_id:
+            params["org_id"] = org_id
+        route = make_path("/api/users", params)
+        users: List[Dict] = []
+        for page in paginate(
+                self.session,
+                self.settings.BASE_URL,
+                "users",
+                route,
+                "GET",
+        ):
+            users.extend(page)
+        return users
+
+    def make_shared_folder(self, name: str, access: str, is_external: bool = False, owner_name=None) -> Dict:
+        if owner_name is None:
+            owner_name = f"{self.primary_org['name']}/{self.current_user['username']}"
+        url = urljoin(self.url, "api/shared_folders")
+        response = self.session.post(
+            url,
+            json={
+                "owner_name": owner_name,
+                "name": name,
+                "access": access,
+                "is_external": is_external,
+                "disk_space": "100Gi",
+            },
+        )
+        return response.json()
 
     def get_size(self, size: str) -> Dict:
         sizes = self.list_options(ServerOptionTypes.SIZES)
@@ -639,6 +739,51 @@ class SaturnConnection:
             recipe["spec"]["ide"] = ide
             recipe["spec"]["disk_space"] = disk_space
         return self.create(recipe, enforce_unknown=False)
+
+    def create_organization(self, name: str, email: str, description: Optional[str] = None) -> Dict:
+        payload = {
+            "name": name,
+            "email": email,
+            "description": description,
+        }
+        url = urljoin(self.url, "api/orgs")
+        response = self.session.post(url, json=payload)
+        result = response.json()
+        return result
+
+    def update_organization(
+        self,
+        org_id: str,
+        name: Optional[str] = None,
+        email: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Dict:
+        payload = {
+            "name": name,
+            "email": email,
+            "description": description,
+        }
+        payload = {k: v for k, v in payload.items() if v is not None}
+
+        url = urljoin(self.url, f"api/orgs/{org_id}")
+        response = self.session.patch(url, json=payload)
+        result = response.json()
+        return result
+
+    def invite(
+        self, org_id: str, email: str, invitee_name: str, invitor_name: str, send_email: bool = True
+    ):
+        payload = {
+            "email": email,
+            "invitee_name": invitee_name,
+            "invitor_name": invitor_name,
+        }
+        params = urlencode({"send_email": "true" if send_email else "false"})
+        url = urljoin(self.url, f"api/orgs/{org_id}/invitations?")
+        url = f"{url}?{urlencode(params)}"
+        response = self.session.post(url, json=payload)
+        result = response.json()
+        return result
 
 
 class SaturnSession(requests.Session):
