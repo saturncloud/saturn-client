@@ -294,6 +294,11 @@ class SaturnConnection:
     def close(self):
         self.session.close()
 
+    def get_size(self, size: str) -> Dict:
+        sizes = self.list_options(ServerOptionTypes.SIZES)
+        pruned = [x for x in sizes if x["name"] == size]
+        return pruned[0]
+
     def get_all_users(self, org_id: Optional[str] = None) -> List[str]:
         params = {"page_size": "1"}
         if org_id:
