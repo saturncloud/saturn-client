@@ -315,7 +315,7 @@ class SaturnConnection:
             users.extend(page)
         return users
 
-    def make_shared_folder(self, name: str, access: str, is_external: bool = False, owner_name=None) -> Dict:
+    def create_shared_folder(self, name: str, access: str, is_external: bool = False, owner_name=None) -> Dict:
         if owner_name is None:
             owner_name = f"{self.primary_org['name']}/{self.current_user['username']}"
         url = urljoin(self.url, "api/shared_folders")
@@ -329,6 +329,11 @@ class SaturnConnection:
                 "disk_space": "100Gi",
             },
         )
+        return response.json()
+
+    def delete_shared_folder(self, shared_folder_id: str) -> Dict:
+        url = urljoin(self.url, f"api/shared_folders/{shared_folder_id}")
+        response = self.session.delete(url)
         return response.json()
 
     def get_size(self, size: str) -> Dict:
