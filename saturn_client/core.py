@@ -299,6 +299,15 @@ class SaturnConnection:
         pruned = [x for x in sizes if x["name"] == size]
         return pruned[0]
 
+    def create_user(self, username: str, email: str, send_reset_email: bool = True):
+        body = {
+            "username": username,
+            "email": email,
+            "send_reset_email": send_reset_email,
+        }
+        path = "/api/users"
+        return execute_request(self.session, self.settings.BASE_URL, path, method="POST", json=body)
+
     def get_all_users(self, org_id: Optional[str] = None) -> List[str]:
         params = {"page_size": "1"}
         if org_id:
