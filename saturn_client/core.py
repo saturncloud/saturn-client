@@ -315,7 +315,7 @@ class SaturnConnection:
             users.extend(page)
         return users
 
-    def create_shared_folder(self, name: str, access: str, is_external: bool = False, owner_name=None) -> Dict:
+    def create_shared_folder(self, name: str, access: str, is_external: bool = False, access_mode: str = "ReadWriteMany", owner_name=None) -> Dict:
         if owner_name is None:
             owner_name = f"{self.primary_org['name']}/{self.current_user['username']}"
         url = urljoin(self.url, "api/shared_folders")
@@ -325,6 +325,7 @@ class SaturnConnection:
                 "owner_name": owner_name,
                 "name": name,
                 "access": access,
+                "access_mode": access_mode,
                 "is_external": is_external,
                 "disk_space": "100Gi",
             },
