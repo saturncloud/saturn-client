@@ -299,7 +299,7 @@ class SaturnConnection:
         pruned = [x for x in sizes if x["name"] == size]
         return pruned[0]
 
-    def create_user(self, username: str, email: str, send_reset_email: bool = True):
+    def create_user(self, username: str, email: str, send_reset_email: bool = True) -> Dict:
         body = {
             "username": username,
             "email": email,
@@ -308,8 +308,21 @@ class SaturnConnection:
         path = "/api/users"
         return execute_request(self.session, self.settings.BASE_URL, path, method="POST", json=body)
 
-    def get_all_users(self, org_id: Optional[str] = None) -> List[str]:
-        params = {"page_size": "1"}
+    def create_service_account(self, name: str, cloud_role: str, auto_associate=False) -> Dict:
+        body = {
+            "name": name,
+            "cloud_role": cloud_role,
+            "auto_associate": auto_associate,
+        }
+        path = "/api/service_accounts"
+        return execute_request(self.session, self.settings.BASE_URL, path, method="POST", json=body)
+
+    def associate_service_account(self, service_account_id: str, identity_type: str, identity_id: str) -> Dict:
+        path = f"/api/service_accounts/{service_account_id}/associate/{identity_type}/{identity_id}"
+        return execute_request(self.session, self.settings.BASE_URL, path, method="PUT")
+
+    def get_all_users(self, org_id: Optional[str] = None, details: bool = False) -> List[str]:
+        params = {"page_size": "1", "details": details}
         if org_id:
             params["org_id"] = org_id
         route = make_path("/api/users", params)
