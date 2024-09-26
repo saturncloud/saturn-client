@@ -315,7 +315,7 @@ class SaturnConnection:
             "auto_associate": auto_associate,
         }
         path = "/api/service_accounts"
-        return execute_request(self.session, self.settings.BASE_URL, path, method="POST", json=body)
+        return execute_request(self.session, self.settings.BASE_URL, path, method="POST", json=body)["service_account"]
 
     def associate_service_account(self, service_account_id: str, identity_type: str, identity_id: str) -> Dict:
         path = f"/api/service_accounts/{service_account_id}/associate/{identity_type}/{identity_id}"
