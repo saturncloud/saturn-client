@@ -808,7 +808,7 @@ class SaturnConnection:
         }
         params = urlencode({"send_email": "true" if send_email else "false"})
         url = urljoin(self.url, f"api/orgs/{org_id}/invitations?")
-        url = f"{url}?{urlencode(params)}"
+        url = f"{url}?{params}"
         response = self.session.post(url, json=payload)
         result = response.json()
         return result
