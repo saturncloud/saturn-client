@@ -798,6 +798,14 @@ class SaturnConnection:
         result = response.json()
         return result
 
+    def add_orgmember(self, org_id: str, user_id: str) -> Dict:
+        url = urljoin(self.url, f"api/orgs/{org_id}/members")
+        payload = {
+            "user_id": user_id,
+        }
+        response = self.session.post(url, json=payload)
+        return response.json()
+
     def invite(
         self, org_id: str, email: str, invitee_name: str, invitor_name: str, send_email: bool = True
     ):
