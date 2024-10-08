@@ -236,9 +236,7 @@ def paginate(
     while True:
         if not next_url:
             break
-        new_data = execute_request(
-            session, base_url, next_url, method
-        )
+        new_data = execute_request(session, base_url, next_url, method)
         next_url = new_data[pagination_field].get("next")
         yield new_data[field]
 
@@ -294,11 +292,6 @@ class SaturnConnection:
     def close(self):
         self.session.close()
 
-    def get_size(self, size: str) -> Dict:
-        sizes = self.list_options(ServerOptionTypes.SIZES)
-        pruned = [x for x in sizes if x["name"] == size]
-        return pruned[0]
-
     def create_user(self, username: str, email: str, send_reset_email: bool = True) -> Dict:
         body = {
             "username": username,
@@ -315,9 +308,13 @@ class SaturnConnection:
             "auto_associate": auto_associate,
         }
         path = "/api/service_accounts"
-        return execute_request(self.session, self.settings.BASE_URL, path, method="POST", json=body)["service_account"]
+        return execute_request(
+            self.session, self.settings.BASE_URL, path, method="POST", json=body
+        )["service_account"]
 
-    def associate_service_account(self, service_account_id: str, identity_type: str, identity_id: str) -> Dict:
+    def associate_service_account(
+        self, service_account_id: str, identity_type: str, identity_id: str
+    ) -> Dict:
         path = f"/api/service_accounts/{service_account_id}/associate/{identity_type}/{identity_id}"
         return execute_request(self.session, self.settings.BASE_URL, path, method="PUT")
 
@@ -328,16 +325,23 @@ class SaturnConnection:
         route = make_path("/api/users", params)
         users: List[Dict] = []
         for page in paginate(
-                self.session,
-                self.settings.BASE_URL,
-                "users",
-                route,
-                "GET",
+            self.session,
+            self.settings.BASE_URL,
+            "users",
+            route,
+            "GET",
         ):
             users.extend(page)
         return users
 
-    def create_shared_folder(self, name: str, access: str, is_external: bool = False, access_mode: str = "ReadWriteMany", owner_name=None) -> Dict:
+    def create_shared_folder(
+        self,
+        name: str,
+        access: str,
+        is_external: bool = False,
+        access_mode: str = "ReadWriteMany",
+        owner_name=None,
+    ) -> Dict:
         if owner_name is None:
             owner_name = f"{self.primary_org['name']}/{self.current_user['username']}"
         url = urljoin(self.url, "api/shared_folders")

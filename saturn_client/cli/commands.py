@@ -512,7 +512,11 @@ def options_cli(option_type: str = ServerOptionTypes.SIZES, glob: Optional[str] 
     "--nprocs",
     default=None,
     type=int,
-    help="Processes per machine. Defaults to number of cores for CPU instances, and number of GPUs for gpu instances",
+    help=(
+        "Processes per machine. "
+        "Defaults to number of cores for CPU instances, "
+        "and number of GPUs for gpu instances"
+    ),
 )
 @click.option("--scale", default=None, type=int, help="number of concurrent machines to run on")
 @click.option("--local-commands-directory", default="/tmp/commands")
