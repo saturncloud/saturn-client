@@ -292,8 +292,18 @@ class SaturnConnection:
     def close(self):
         self.session.close()
 
-    def get_org_usage(self, org_id: str, start: Union[dt.datetime, str], end: Union[dt.datetime, str]) -> Dict:
+    def get_org_usage(self, org_id: str, start: Union[dt.datetime, str], end: Union[dt.datetime, str]) -> List:
         path = f"/api/orgs/{org_id}/usage/daily"
+        if isinstance(start, dt.datetime):
+            start = start.isoformat()
+        if isinstance(end, dt.datetime):
+            end = end.isoformat()
+        params = {'start': start, 'end': end}
+        route = make_path(path, params)
+        return execute_request(self.session, self.settings.BASE_URL, route, method="GET")['usage']
+
+    def get_user_usage(self, org_id: str, user_id: str, start: Union[dt.datetime, str], end: Union[dt.datetime, str]) -> List:
+        path = f"/api/orgs/{org_id}/members/{user_id})/usage/daily"
         if isinstance(start, dt.datetime):
             start = start.isoformat()
         if isinstance(end, dt.datetime):
