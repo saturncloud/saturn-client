@@ -292,6 +292,27 @@ class SaturnConnection:
     def close(self):
         self.session.close()
 
+    def get_owners(self, org_id: str, all_users: bool, all_groups: bool, users_only: bool, groups_only: bool, details: bool = False) -> List:
+        path = f"/api/orgs/{org_id}/members"
+        params = {
+            "all_uses": str(all_users),
+            "all_groups": str(all_groups),
+            "users_only": str(users_only),
+            "groups_only": str(groups_only),
+            "details": str(details),
+        }
+        route = make_path(path, params)
+        owners = []
+        for page in paginate(
+            self.session,
+            self.settings.BASE_URL,
+            "owners",
+            route,
+            "GET",
+        ):
+            owners.extend(page)
+        return owners
+
     def get_org_usage(self, org_id: str, start: Union[dt.datetime, str], end: Union[dt.datetime, str]) -> List:
         path = f"/api/orgs/{org_id}/usage/daily"
         if isinstance(start, dt.datetime):
