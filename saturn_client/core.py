@@ -293,7 +293,7 @@ class SaturnConnection:
         self.session.close()
 
     def get_owners(self, org_id: str, all_users: bool = False, all_groups: bool = False, users_only: bool = False, groups_only: bool = False, details: bool = False) -> List:
-        path = f"/api/orgs/{org_id}/members"
+        path = f"/api/orgs/{org_id}/owners"
         params = {
             "all_uses": str(all_users),
             "all_groups": str(all_groups),
