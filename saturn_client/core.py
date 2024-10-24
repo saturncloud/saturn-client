@@ -333,6 +333,10 @@ class SaturnConnection:
         route = make_path(path, params)
         return execute_request(self.session, self.settings.BASE_URL, route, method="GET")['usage']
 
+    def get_user(self, user_id: str) -> Dict:
+        path = f"/api/users/{user_id}"
+        return execute_requset(self.session, self.settings.BASE_URL, path, method="GET")
+
     def create_user(self, username: str, email: str, send_reset_email: bool = True) -> Dict:
         body = {
             "username": username,
