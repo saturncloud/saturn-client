@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import click
 from ruamel.yaml import YAML
+from ruamel.yaml.scalarstring import LiteralScalarString
 
 from saturn_client.run import Run
 
@@ -33,6 +34,12 @@ def print_json(data: Union[List, Dict]):
     click.echo(json.dumps(data, indent=2))
 
 
+def maybe_sanitize_yaml(obj: Dict) -> Dict:
+    if 'spec' in obj and 'start_script' in obj['spec']:
+        obj['spec']['start_script'] = LiteralScalarString(obj['spec']['start_script'])
+    return obj
+
+
 def print_resources(resource: Union[List, Dict], output: str = OutputFormat.TABLE):
     output = output.lower()
     OutputFormat.validate(output)
@@ -42,9 +49,13 @@ def print_resources(resource: Union[List, Dict], output: str = OutputFormat.TABL
         print_resource_table(resource)
     elif output == OutputFormat.YAML:
         yaml = YAML()
+        yaml.default_flow_style = False
+        yaml.width = -1
         if isinstance(resource, list):
+            resource = [maybe_sanitize_yaml(x) for x in resource]
             yaml.dump_all(resource, sys.stdout)
         else:
+            resource = maybe_sanitize_yaml(resource)
             yaml.dump(resource, sys.stdout)
     else:
         print_json(resource)
