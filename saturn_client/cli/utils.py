@@ -50,7 +50,7 @@ def print_resources(resource: Union[List, Dict], output: str = OutputFormat.TABL
     elif output == OutputFormat.YAML:
         yaml = YAML()
         yaml.default_flow_style = False
-        yaml.width = -1
+        yaml.width = sys.maxsize
         if isinstance(resource, list):
             resource = [maybe_sanitize_yaml(x) for x in resource]
             yaml.dump_all(resource, sys.stdout)
