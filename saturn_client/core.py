@@ -8,7 +8,7 @@ from fnmatch import fnmatch
 from json import JSONDecodeError
 import logging
 import datetime as dt
-from dataclasses import dataclass
+from dataclasses import dataclass, field, asdict
 from functools import reduce
 from os.path import join
 from tempfile import TemporaryDirectory
@@ -188,6 +188,51 @@ class Pod:
         )
 
 
+@dataclass
+class UsageLimitPatch:
+    name: str
+    is_default: bool
+
+    # Resource limits
+    instance_sizes: Optional[List[str]] = None
+    resource_types: Optional[List[str]] = None
+    num_instances: Optional[int] = None
+    auto_shutoff: Optional[int] = None
+
+    # Storage limits
+    storage_in_gb: Optional[int] = None
+    num_shared_folders: Optional[int] = None
+    object_storage_bytes: Optional[int] = None
+    object_storage_count: Optional[int] = None
+
+    # Aggregate usage limits
+    hours_per_day: Optional[int] = None
+    hours_per_month: Optional[int] = None
+    hours_forever: Optional[int] = None
+
+
+@dataclass
+class _UsageLimitCreate:
+    org_id: str
+    name: str
+
+
+@dataclass
+class _UsageLimit:
+    id: str
+    created_at: dt.datetime
+
+
+@dataclass
+class UsageLimitCreate(UsageLimitPatch, _UsageLimitCreate):
+    pass
+
+
+@dataclass
+class UsageLimit(UsageLimitPatch, _UsageLimitCreate, _UsageLimit):
+    pass
+
+
 def execute_request(
     session: Session,
     base_url: str,
@@ -292,7 +337,37 @@ class SaturnConnection:
     def close(self):
         self.session.close()
 
-    def get_owners(self, org_id: str, all_users: bool = False, all_groups: bool = False, users_only: bool = False, groups_only: bool = False, details: bool = False) -> List:
+    def create_usage_limit(self, limit: UsageLimitCreate) -> UsageLimit:
+        path = "/api/limits"
+        obj = asdict(limit)
+        result = execute_request(
+            self.session, self.settings.BASE_URL, path, method="POST", json=obj
+        )
+        return UsageLimit(**result)
+
+    def patch_usage_limit(self, limits_id: str, limit: UsageLimitPatch) -> UsageLimit:
+        path = f"/api/limits/{limits_id}"
+        obj = asdict(limit)
+        result = execute_request(
+            self.session, self.settings.BASE_URL, path, method="PATCH", json=obj
+        )
+        return UsageLimit(**result)
+
+    def delete_usage_limit(self, limits_id: str) -> None:
+        path = f"/api/limits/{limits_id}"
+        result = execute_request(
+            self.session, self.settings.BASE_URL, path, method="DELETE", parse_response=False
+        )
+
+    def get_owners(
+        self,
+        org_id: str,
+        all_users: bool = False,
+        all_groups: bool = False,
+        users_only: bool = False,
+        groups_only: bool = False,
+        details: bool = False,
+    ) -> List:
         path = f"/api/orgs/{org_id}/owners"
         params = {
             "all_users": str(all_users),
@@ -313,25 +388,33 @@ class SaturnConnection:
             owners.extend(page)
         return owners
 
-    def get_org_usage(self, org_id: str, start: Union[dt.datetime, str], end: Union[dt.datetime, str]) -> List:
+    def get_org_usage(
+        self, org_id: str, start: Union[dt.datetime, str], end: Union[dt.datetime, str]
+    ) -> List:
         path = f"/api/orgs/{org_id}/usage/daily"
         if isinstance(start, dt.datetime):
             start = start.isoformat()
         if isinstance(end, dt.datetime):
             end = end.isoformat()
-        params = {'start': start, 'end': end}
+        params = {"start": start, "end": end}
         route = make_path(path, params)
-        return execute_request(self.session, self.settings.BASE_URL, route, method="GET")['usage']
+        return execute_request(self.session, self.settings.BASE_URL, route, method="GET")["usage"]
 
-    def get_user_usage(self, org_id: str, user_id: str, start: Union[dt.datetime, str], end: Union[dt.datetime, str]) -> List:
+    def get_user_usage(
+        self,
+        org_id: str,
+        user_id: str,
+        start: Union[dt.datetime, str],
+        end: Union[dt.datetime, str],
+    ) -> List:
         path = f"/api/orgs/{org_id}/members/{user_id}/usage/daily"
         if isinstance(start, dt.datetime):
             start = start.isoformat()
         if isinstance(end, dt.datetime):
             end = end.isoformat()
-        params = {'start': start, 'end': end}
+        params = {"start": start, "end": end}
         route = make_path(path, params)
-        return execute_request(self.session, self.settings.BASE_URL, route, method="GET")['usage']
+        return execute_request(self.session, self.settings.BASE_URL, route, method="GET")["usage"]
 
     def get_user(self, user_id: str) -> Dict:
         path = f"/api/users/{user_id}"

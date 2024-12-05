@@ -35,8 +35,8 @@ def print_json(data: Union[List, Dict]):
 
 
 def maybe_sanitize_yaml(obj: Dict) -> Dict:
-    if 'spec' in obj and 'start_script' in obj['spec']:
-        obj['spec']['start_script'] = LiteralScalarString(obj['spec']['start_script'])
+    if "spec" in obj and "start_script" in obj["spec"]:
+        obj["spec"]["start_script"] = LiteralScalarString(obj["spec"]["start_script"])
     return obj
 
 
