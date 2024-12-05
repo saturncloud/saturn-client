@@ -8,7 +8,7 @@ from fnmatch import fnmatch
 from json import JSONDecodeError
 import logging
 import datetime as dt
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from functools import reduce
 from os.path import join
 from tempfile import TemporaryDirectory
@@ -355,7 +355,7 @@ class SaturnConnection:
 
     def delete_usage_limit(self, limits_id: str) -> None:
         path = f"/api/limits/{limits_id}"
-        result = execute_request(
+        execute_request(
             self.session, self.settings.BASE_URL, path, method="DELETE", parse_response=False
         )
 
