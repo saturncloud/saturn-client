@@ -922,11 +922,13 @@ class SaturnConnection:
         name: Optional[str] = None,
         email: Optional[str] = None,
         description: Optional[str] = None,
+        limits_id: Optional[str] = None,
     ) -> Dict:
         payload = {
             "name": name,
             "email": email,
             "description": description,
+            "limits_id": limits_id,
         }
         payload = {k: v for k, v in payload.items() if v is not None}
 
