@@ -905,11 +905,20 @@ class SaturnConnection:
             recipe["spec"]["disk_space"] = disk_space
         return self.create(recipe, enforce_unknown=False)
 
-    def create_organization(self, name: str, email: str, description: Optional[str] = None) -> Dict:
+    def create_organization(
+        self,
+        name: str,
+        email: str,
+        description: Optional[str] = None,
+        website_url: Optional[str] = None,
+        limits_id: Optional[str] = None,
+    ) -> Dict:
         payload = {
             "name": name,
             "email": email,
             "description": description,
+            "website_url": website_url,
+            "limits_id": limits_id,
         }
         url = urljoin(self.url, "api/orgs")
         response = self.session.post(url, json=payload)
@@ -922,12 +931,14 @@ class SaturnConnection:
         name: Optional[str] = None,
         email: Optional[str] = None,
         description: Optional[str] = None,
+        website_url: Optional[str] = None,
         limits_id: Optional[str] = None,
     ) -> Dict:
         payload = {
             "name": name,
             "email": email,
             "description": description,
+            "website_url": website_url,
             "limits_id": limits_id,
         }
         payload = {k: v for k, v in payload.items() if v is not None}
