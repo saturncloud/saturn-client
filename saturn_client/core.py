@@ -496,6 +496,14 @@ class SaturnConnection:
         response = self.session.post(url, json={"user_id": user_id, "default_org_id": org_id})
         return response.json()
 
+    def stop_all_resources_in_org(self, org_id: str) -> None:
+        owner_names = [x['name'] for x in self.get_owners(org_id=org_id, all_users=True, all_groups=True)]
+        for owner_name in owner_names:
+            resources = self.list_resources(owner_name=owner_name)
+            for resource in resources:
+                if resource['state']['status'] != 'stopped':
+                    self.stop(resource['type'], resource['state']['id'])
+
     def get_size(self, size: str) -> Dict:
         sizes = self.list_options(ServerOptionTypes.SIZES)
         pruned = [x for x in sizes if x["name"] == size]
