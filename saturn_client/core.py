@@ -491,6 +491,11 @@ class SaturnConnection:
         response = self.session.delete(url)
         return response.json()
 
+    def get_shared_folder(self, shared_folder_id: str) -> Dict:
+        url = urljoin(self.url, f"api/shared_folders/{shared_folder_id}")
+        response = self.session.get(url)
+        return response.json()
+
     def set_preferred_org(self, user_id: str, org_id: str) -> Dict:
         url = urljoin(self.url, "api/user/preferences")
         response = self.session.post(url, json={"user_id": user_id, "default_org_id": org_id})
