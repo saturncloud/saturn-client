@@ -530,6 +530,10 @@ def options_cli(option_type: str = ServerOptionTypes.SIZES, glob: Optional[str] 
 @click.option(
     "--max-jobs", help="maximum number of runs that will be scheduled", type=int, default=-1
 )
+@click.option(
+    "--file-syncs-base-dir-url"
+    default=None
+)
 def split_cli(
     recipe_template: str,
     batch_file: str,
@@ -545,6 +549,7 @@ def split_cli(
     skip_completed: bool = False,
     skip_failures: bool = False,
     max_jobs: int = -1,
+    file_syncs_base_dir_url: Optional[str] = None,
 ):
     sync = list(sync)
     max_jobs = int(max_jobs)
@@ -602,7 +607,7 @@ def split_cli(
         max_jobs=max_jobs,
     )
     sync.append(f"{local_commands_directory}:{remote_commands_directory}")
-    setup_file_syncs(recipe, sync)
+    setup_file_syncs(recipe, sync, remote_fsspec_base_dir_url=file_syncs_base_dir_url)
     with open(join(local_commands_directory, "recipe.yaml"), "w+") as f:
         yaml = YAML()
         yaml.default_flow_style = False
