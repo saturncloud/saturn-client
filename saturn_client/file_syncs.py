@@ -2,6 +2,10 @@ from os.path import join
 from tempfile import TemporaryDirectory
 from urllib.parse import urlparse
 
+try:
+    import saturnfs
+except ImportError:
+    pass
 import fsspec
 from fsspec.generic import GenericFileSystem
 
@@ -29,9 +33,9 @@ def upload_source(local_path: str, remote_fsspec_base_dir_url: str, saturn_resou
                 "*/.ipynb_checkpoints/*",
             ],
         )
-        fs = GenericFileSystem()
-        breakpoint()
-        fs.copy(output_path, remote_fsspec_url)
+        parsed = urlparse(remote_fsspec_url)
+        fs = fsspec.get_filesystem_class(parsed.scheme)()
+        fs.put(output_path, remote_fsspec_url)
     return remote_fsspec_url
 
 
