@@ -549,34 +549,6 @@ class SaturnConnection:
             return primary_org
         raise ValueError("primary organization not found")
 
-    def upload_source(self, local_path: str, resource_name: str, saturn_resource_path: str) -> str:
-        """
-        This method uploads a local_path to some location in sfs, which in the future
-        will be downloaded to saturn_resource_path
-        """
-        from saturnfs import SaturnFS
-
-        username = self.current_user["username"]
-        org_name = self.primary_org["name"]
-        sfs_path = f"sfs://{org_name}/{username}/{resource_name}{saturn_resource_path}data.tar.gz"
-        with TemporaryDirectory() as d:
-            output_path = join(d, "data.tar.gz")
-            create_tar_archive(
-                local_path,
-                output_path,
-                exclude_globs=[
-                    "*.git/*",
-                    "*.idea/*",
-                    "*.mypy_cache/*",
-                    "*.pytest_cache/*",
-                    "*/__pycache__/*",
-                    "*/.ipynb_checkpoints/*",
-                ],
-            )
-            fs = SaturnFS()
-            fs.put(output_path, sfs_path)
-        return sfs_path
-
     @property
     def current_user(self):
         url = urljoin(self.url, "api/user")

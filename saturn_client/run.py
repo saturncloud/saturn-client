@@ -18,6 +18,7 @@ import fsspec.generic
 from saturnfs.client.saturnfs import _rsync
 
 from saturn_client import SaturnConnection
+from saturn_client.file_syncs import get_default_sfs_base_dir_url, upload_source, get_download_cmd
 from saturn_client.settings import Settings
 
 
@@ -215,13 +216,15 @@ def split(
     recipe["spec"]["command"] = [f"sc batch {x}" for x in output_batch_files]
 
 
-def setup_file_syncs(recipe: Dict, sync: List[str]) -> None:
+def setup_file_syncs(recipe: Dict, sync: List[str], remote_fsspec_base_dir_url: Optional[str] = None) -> None:
     commands = []
     START_STRING = "### BEGIN SATURN_CLIENT GENERATED CODE"
     END_STRING = "### END SATURN_CLIENT GENERATED CODE"
     working_directory = recipe["spec"].get("working_directory", Settings.WORKING_DIRECTORY)
     resource_name = recipe["spec"].get("name")
     client = SaturnConnection()
+    if remote_fsspec_base_dir_url is None:
+        remote_fsspec_base_dir_url = get_default_sfs_base_dir_url(client, resource_name)
     for s in sync:
         if ":" in s:
             source, dest = s.split(":")
@@ -234,9 +237,9 @@ def setup_file_syncs(recipe: Dict, sync: List[str]) -> None:
         if not dest.endswith("/"):
             dest += "/"
         click.echo(f"syncing {source}")
-        sfs_path = client.upload_source(source, resource_name, dest)
-        click.echo(f"synced {source} to {sfs_path}")
-        cmd = f"saturnfs cp {sfs_path} /tmp/data.tar.gz"
+        remote_fsspec_url = upload_source(source, remote_fsspec_base_dir_url, dest)
+        click.echo(f"synced {source} to {remote_fsspec_url}")
+        cmd = get_download_cmd(remote_fsspec_url)
         commands.append(cmd)
         cmd = f"mkdir -p {dest}"
         commands.append(cmd)
