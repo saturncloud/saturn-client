@@ -28,7 +28,8 @@ def upload_source(local_path: str, remote_fsspec_base_dir_url: str, saturn_resou
                 "*/.ipynb_checkpoints/*",
             ],
         )
-        fsspec.copy(output_path, remote_fsspec_url)
+        fs = fsspec.GenericFileSystem()
+        fs.copy(output_path, remote_fsspec_url)
     return remote_fsspec_url
 
 
