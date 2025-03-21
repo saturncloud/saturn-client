@@ -30,6 +30,7 @@ def upload_source(local_path: str, remote_fsspec_base_dir_url: str, saturn_resou
             ],
         )
         fs = GenericFileSystem()
+        breakpoint()
         fs.copy(output_path, remote_fsspec_url)
     return remote_fsspec_url
 
