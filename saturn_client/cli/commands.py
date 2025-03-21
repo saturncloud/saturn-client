@@ -531,7 +531,7 @@ def options_cli(option_type: str = ServerOptionTypes.SIZES, glob: Optional[str] 
     "--max-jobs", help="maximum number of runs that will be scheduled", type=int, default=-1
 )
 @click.option(
-    "--file-syncs-base-dir-url"
+    "--file-syncs-base-dir-url",
     default=None
 )
 def split_cli(
