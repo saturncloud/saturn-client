@@ -1,6 +1,6 @@
 from os.path import join
 from tempfile import TemporaryDirectory
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import fsspec
 from fsspec.generic import GenericFileSystem
@@ -14,7 +14,7 @@ def upload_source(local_path: str, remote_fsspec_base_dir_url: str, saturn_resou
         remote_fsspec_base_dir_url += "/"
     if saturn_resource_path.startswith("/"):
         saturn_resource_path = saturn_resource_path[1:]
-    remote_fsspec_url = urljoin(remote_fsspec_base_dir_url, saturn_resource_path)
+    remote_fsspec_url = join(remote_fsspec_base_dir_url, saturn_resource_path)
     with TemporaryDirectory() as d:
         output_path = join(d, "data.tar.gz")
         create_tar_archive(
