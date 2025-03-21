@@ -14,7 +14,7 @@ def upload_source(local_path: str, remote_fsspec_base_dir_url: str, saturn_resou
         remote_fsspec_base_dir_url += "/"
     if saturn_resource_path.startswith("/"):
         saturn_resource_path = saturn_resource_path[1:]
-    remote_fsspec_url = join(remote_fsspec_base_dir_url, saturn_resource_path)
+    remote_fsspec_url = join(remote_fsspec_base_dir_url, saturn_resource_path, "data.tar.gz")
     with TemporaryDirectory() as d:
         output_path = join(d, "data.tar.gz")
         create_tar_archive(
