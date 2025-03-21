@@ -1,4 +1,4 @@
-from os.path import join
+from os.path import join, dirname
 from tempfile import TemporaryDirectory
 from urllib.parse import urlparse
 
@@ -35,6 +35,7 @@ def upload_source(local_path: str, remote_fsspec_base_dir_url: str, saturn_resou
         )
         parsed = urlparse(remote_fsspec_url)
         fs = fsspec.get_filesystem_class(parsed.scheme)()
+        fs.makedirs(dirname(remote_fsspec_url), exist_ok=True)
         fs.put(output_path, remote_fsspec_url)
     return remote_fsspec_url
 
