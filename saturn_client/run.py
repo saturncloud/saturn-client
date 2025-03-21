@@ -8,6 +8,7 @@ from dataclasses import dataclass, asdict
 from os.path import join, exists
 import os
 from tempfile import NamedTemporaryFile
+from threading import Lock
 from typing import List, Dict, Tuple, Optional
 
 import click
@@ -60,7 +61,27 @@ class RunStatus:
     ERROR = "error"
 
 
-def dispatch_thread(cmd: str, remote_output_path: str, local_results_dir: str) -> None:
+class LocalRankManager:
+    def __init__(self, size):
+        self.ranks = list(range(size))
+        self.lock = Lock()
+
+    def acquire(self) -> int:
+        self.lock.acquire()
+        rank = self.ranks.pop()
+        self.lock.release()
+        return rank
+
+    def release(self, rank: int):
+        self.lock.acquire()
+        self.ranks.append(rank)
+        self.lock.release()
+
+
+def dispatch_thread(
+    cmd: str, remote_output_path: str, local_results_dir: str, rank_manager: LocalRankManager
+) -> None:
+    rank = rank_manager.acquire()
     output_path = remote_output_path
     os.makedirs(local_results_dir, exist_ok=True)
     fs = fsspec.generic.GenericFileSystem()
@@ -75,6 +96,7 @@ def dispatch_thread(cmd: str, remote_output_path: str, local_results_dir: str) -
     env = os.environ.copy()
     env["SATURN_RUN_REMOTE_OUTPUT_PATH"] = remote_output_path
     env["SATURN_RUN_LOCAL_RESULTS_DIR"] = local_results_dir
+    env["SATURN_RUN_LOCAL_RANK"] = str(rank)
     try:
         stdout_local_f = NamedTemporaryFile("w+t", buffering=1)
         stderr_local_f = NamedTemporaryFile("w+t", buffering=1)
@@ -105,6 +127,7 @@ def dispatch_thread(cmd: str, remote_output_path: str, local_results_dir: str) -
                     break
 
     finally:
+        rank_manager.release(rank)
         stdout.echo = None
         stderr.echo = None
         if exists(local_results_dir):
@@ -116,11 +139,16 @@ def dispatch_thread(cmd: str, remote_output_path: str, local_results_dir: str) -
 def batch(input_dict: Dict) -> None:
     batch = Batch.from_dict(input_dict)
     nprocs = batch.nprocs
+    rank_manager = LocalRankManager(nprocs)
     futures: List[Future] = []
     with ThreadPoolExecutor(nprocs) as pool:
         for run in batch.runs:
             fut = pool.submit(
-                dispatch_thread, run.cmd, run.remote_output_path, run.local_results_dir
+                dispatch_thread,
+                run.cmd,
+                run.remote_output_path,
+                run.local_results_dir,
+                rank_manager,
             )
             futures.append(fut)
         for fut in futures:
