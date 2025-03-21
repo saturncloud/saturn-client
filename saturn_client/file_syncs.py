@@ -3,6 +3,7 @@ from tempfile import TemporaryDirectory
 from urllib.parse import urljoin, urlparse
 
 import fsspec
+from fsspec.generic import GenericFileSystem
 
 from saturn_client import SaturnConnection
 from saturn_client.tar_utils import create_tar_archive
@@ -28,7 +29,7 @@ def upload_source(local_path: str, remote_fsspec_base_dir_url: str, saturn_resou
                 "*/.ipynb_checkpoints/*",
             ],
         )
-        fs = fsspec.GenericFileSystem()
+        fs = GenericFileSystem()
         fs.copy(output_path, remote_fsspec_url)
     return remote_fsspec_url
 
