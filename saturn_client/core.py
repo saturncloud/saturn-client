@@ -888,7 +888,8 @@ class SaturnConnection:
         if resource_type == "workspace":
             recipe["spec"]["ide"] = ide
             recipe["spec"]["disk_space"] = disk_space
-        print(recipe)
+        if owner_name:
+            recipe['spec']['owner'] = owner_name
         return self.create(recipe, enforce_unknown=False)
 
     def create_organization(
