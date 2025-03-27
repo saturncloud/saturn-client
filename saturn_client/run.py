@@ -244,7 +244,9 @@ def split(
     recipe["spec"]["command"] = [f"sc batch {x}" for x in output_batch_files]
 
 
-def setup_file_syncs(recipe: Dict, sync: List[str], remote_fsspec_base_dir_url: Optional[str] = None) -> None:
+def setup_file_syncs(
+    recipe: Dict, sync: List[str], remote_fsspec_base_dir_url: Optional[str] = None
+) -> None:
     commands = []
     START_STRING = "### BEGIN SATURN_CLIENT GENERATED CODE"
     END_STRING = "### END SATURN_CLIENT GENERATED CODE"

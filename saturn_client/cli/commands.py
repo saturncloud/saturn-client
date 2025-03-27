@@ -231,7 +231,13 @@ def logs(
     "--start", is_flag=True, help="Start the resource after creating/updating it with the recipe"
 )
 @click.option("--sync", multiple=True, default=[])
-def apply(input_file: str, start: bool = False, sync: List[str] = []):
+@click.option("--file-syncs-base-dir-url", default=None)
+def apply(
+    input_file: str,
+    start: bool = False,
+    sync: List[str] = [],
+    file_syncs_base_dir_url: Optional[str] = None,
+):
     """
     Create or update the contents of a resource recipe.
 
@@ -246,7 +252,7 @@ def apply(input_file: str, start: bool = False, sync: List[str] = []):
     if isinstance(recipe["spec"].get("command", None), list):
         recipe["spec"]["command"] = json.dumps(recipe["spec"]["command"])
     if sync:
-        setup_file_syncs(recipe, sync)
+        setup_file_syncs(recipe, sync, remote_fsspec_base_dir_url=file_syncs_base_dir_url)
     client = SaturnConnection()
     result = client.apply(recipe)
     resource_type = ResourceType.lookup(result["type"])
@@ -530,10 +536,7 @@ def options_cli(option_type: str = ServerOptionTypes.SIZES, glob: Optional[str] 
 @click.option(
     "--max-jobs", help="maximum number of runs that will be scheduled", type=int, default=-1
 )
-@click.option(
-    "--file-syncs-base-dir-url",
-    default=None
-)
+@click.option("--file-syncs-base-dir-url", default=None)
 def split_cli(
     recipe_template: str,
     batch_file: str,

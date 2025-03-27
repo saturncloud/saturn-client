@@ -10,8 +10,6 @@ import logging
 import datetime as dt
 from dataclasses import dataclass, asdict
 from functools import reduce
-from os.path import join
-from tempfile import TemporaryDirectory
 import weakref
 
 import requests
@@ -23,7 +21,7 @@ from requests import Session
 from saturn_client.logs import format_historical_logs, format_logs, is_live
 
 from .settings import Settings
-from .tar_utils import create_tar_archive
+
 
 log = logging.getLogger("saturn-client")
 if log.level == logging.NOTSET:
@@ -502,12 +500,14 @@ class SaturnConnection:
         return response.json()
 
     def stop_all_resources_in_org(self, org_id: str) -> None:
-        owner_names = [x['name'] for x in self.get_owners(org_id=org_id, all_users=True, all_groups=True)]
+        owner_names = [
+            x["name"] for x in self.get_owners(org_id=org_id, all_users=True, all_groups=True)
+        ]
         for owner_name in owner_names:
             resources = self.list_resources(owner_name=owner_name)
             for resource in resources:
-                if resource['state']['status'] != 'stopped':
-                    self.stop(resource['type'], resource['state']['id'])
+                if resource["state"]["status"] != "stopped":
+                    self.stop(resource["type"], resource["state"]["id"])
 
     def get_size(self, size: str) -> Dict:
         sizes = self.list_options(ServerOptionTypes.SIZES)
@@ -889,7 +889,7 @@ class SaturnConnection:
             recipe["spec"]["ide"] = ide
             recipe["spec"]["disk_space"] = disk_space
         if owner_name:
-            recipe['spec']['owner'] = owner_name
+            recipe["spec"]["owner"] = owner_name
         return self.create(recipe, enforce_unknown=False)
 
     def create_organization(

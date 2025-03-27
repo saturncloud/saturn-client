@@ -3,17 +3,18 @@ from tempfile import TemporaryDirectory
 from urllib.parse import urlparse
 
 try:
-    import saturnfs
+    import saturnfs  # noqa
 except ImportError:
     pass
 import fsspec
-from fsspec.generic import GenericFileSystem
 
 from saturn_client import SaturnConnection
 from saturn_client.tar_utils import create_tar_archive
 
 
-def upload_source(local_path: str, remote_fsspec_base_dir_url: str, saturn_resource_path: str) -> None:
+def upload_source(
+    local_path: str, remote_fsspec_base_dir_url: str, saturn_resource_path: str
+) -> None:
     if not remote_fsspec_base_dir_url.endswith("/"):
         remote_fsspec_base_dir_url += "/"
     if saturn_resource_path.startswith("/"):
