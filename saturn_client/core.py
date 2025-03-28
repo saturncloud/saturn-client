@@ -484,10 +484,10 @@ class SaturnConnection:
         )
         return response.json()
 
-    def delete_shared_folder(self, shared_folder_id: str) -> Dict:
+    def delete_shared_folder(self, shared_folder_id: str) -> None:
         url = urljoin(self.url, f"api/shared_folders/{shared_folder_id}")
-        response = self.session.delete(url)
-        return response.json()
+        self.session.delete(url)
+        return None
 
     def get_shared_folder(self, shared_folder_id: str) -> Dict:
         url = urljoin(self.url, f"api/shared_folders/{shared_folder_id}")
