@@ -920,6 +920,7 @@ class SaturnConnection:
         description: Optional[str] = None,
         website_url: Optional[str] = None,
         limits_id: Optional[str] = None,
+        locked: Optional[bool] = None,
     ) -> Dict:
         payload = {
             "name": name,
@@ -928,6 +929,8 @@ class SaturnConnection:
             "website_url": website_url,
             "limits_id": limits_id,
         }
+        if locked is not None:
+            payload["locked"] = locked
         payload = {k: v for k, v in payload.items() if v is not None}
 
         url = urljoin(self.url, f"api/orgs/{org_id}")
