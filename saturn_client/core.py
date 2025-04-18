@@ -892,6 +892,20 @@ class SaturnConnection:
             recipe["spec"]["owner"] = owner_name
         return self.create(recipe, enforce_unknown=False)
 
+    def get_org_subscription(self, org_id: str) -> Optional[Dict[str, any]]:
+        url = urljoin(self.url, f"api/billing/info?org_id={org_id}")
+        response = self.session.get(url)
+        if response.content:
+            result = response.json()
+            return result
+        return None
+
+    def get_organization(self, org_id: str) -> Dict[str, any]:
+        url = urljoin(self.url, f"api/orgs/{org_id}")
+        response = self.session.get(url)
+        result = response.json()
+        return result
+
     def create_organization(
         self,
         name: str,
