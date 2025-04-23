@@ -952,6 +952,80 @@ class SaturnConnection:
         result = response.json()
         return result
 
+    def list_resource_templates(
+        self, owner: str = None, name: str = None, access: str = None, resource_type: str = None
+    ):
+        query = []
+        if owner:
+            owner = ensure_quoted(owner)
+            query.append(f"owner:{owner}")
+        if name:
+            name = ensure_quoted(name)
+            query.append(f"name:{name}")
+        if access:
+            access = ensure_quoted(access)
+            query.append(f"access:{access}")
+        if resource_type:
+            resource_type = ensure_quoted(resource_type)
+            query.append(f"resource_type:{resource_type}")
+        q = " ".join(query)
+        url = urljoin(self.url, "api/resource_templates")
+        url = url + "?" + urlencode({"q": q})
+        print(url)
+        response = self.session.get(url)
+        return response.json()["templates"]
+
+    def get_resource_template(self, id: str) -> Dict:
+        url = urljoin(self.url, f"api/resource_templates/{id}")
+        response = self.session.get(url)
+        return response.json()
+
+    def update_resource_template(
+        self,
+        id: str,
+        access: str = None,
+        description: str = None,
+        name: str = None,
+        recipe: dict = None,
+    ) -> Dict:
+        url = urljoin(self.url, f"api/resource_templates/{id}")
+        data = {}
+        if access:
+            data["access"] = access
+        if description:
+            data["description"] = description
+        if name:
+            data["name"] = name
+        if recipe:
+            data["recipe"] = recipe
+        response = self.session.patch(url, json=data)
+        return response.json()
+
+    def delete_resource_template(self, id: str):
+        url = urljoin(self.url, f"api/resource_templates/{id}")
+        self.session.delete(url)
+
+    def create_resource_template(
+        self,
+        access: str,
+        description: str,
+        name: str,
+        recipe: dict,
+        thumbnail_image_url: str,
+        weight: int,
+    ) -> Dict:
+        url = urljoin(self.url, "api/resource_templates")
+        data = dict(
+            access=access,
+            description=description,
+            name=name,
+            recipe=recipe,
+            thumbnail_image_url=thumbnail_image_url,
+            weight=weight,
+        )
+        response = self.session.post(url, json=data)
+        return response.json()
+
     def add_orgmember(self, org_id: str, user_id: str) -> Dict:
         url = urljoin(self.url, f"api/orgs/{org_id}/members")
         payload = {
@@ -1034,3 +1108,8 @@ class SaturnSession(requests.Session):
                 self.headers.update(self.settings.headers)
                 return True
         return False
+
+
+def ensure_quoted(input_str: str) -> str:
+    input_str = input_str.strip(""" "'""")
+    return f'"{input_str}"'
