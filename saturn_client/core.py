@@ -253,7 +253,6 @@ def execute_request(
     kwargs = dict(headers=headers)
     if json:
         kwargs["json"] = json
-
     result = getattr(session, method.lower())(url, **kwargs)
     if result.status_code == 404:
         raise SaturnHTTPError(f"{url}:404")
@@ -426,6 +425,34 @@ class SaturnConnection:
         }
         path = "/api/users"
         return execute_request(self.session, self.settings.BASE_URL, path, method="POST", json=body)
+
+    def update_user(
+        self,
+        user_id,
+        email: Optional[str] = None,
+        username: Optional[str] = None,
+        full_name: Optional[str] = None,
+        admin: Optional[bool] = False,
+        locked: Optional[bool] = False,
+        limits_id: Optional[str] = None,
+    ) -> Dict:
+        path = f"/api/users/{user_id}"
+        body = {}
+        if email is not None:
+            body["email"] = email
+        if username is not None:
+            body["username"] = username
+        if full_name is not None:
+            body["full_name"] = full_name
+        if admin is not None:
+            body["admin"] = admin
+        if locked is not None:
+            body["locked"] = locked
+        if limits_id is not None:
+            body["limits_id"] = limits_id
+        return execute_request(
+            self.session, self.settings.BASE_URL, path, method="PATCH", json=body
+        )
 
     def create_service_account(self, name: str, cloud_role: str, auto_associate=False) -> Dict:
         body = {
