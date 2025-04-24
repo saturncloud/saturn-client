@@ -927,6 +927,13 @@ class SaturnConnection:
             return result
         return None
 
+    def list_organizations(self, all_orgs: bool = False) -> List[Dict[str, Any]]:
+        path = "/api/orgs"
+        if all_orgs:
+            path += "?all_orgs=true"
+        response = execute_request(self.session, self.settings.BASE_URL, path, method="GET")
+        return response["orgs"]
+
     def get_organization(self, org_id: str) -> Dict[str, any]:
         url = urljoin(self.url, f"api/orgs/{org_id}")
         response = self.session.get(url)
