@@ -1014,6 +1014,7 @@ class SaturnConnection:
         description: str = None,
         name: str = None,
         recipe: dict = None,
+        in_gallery: Optional[bool] = False,
     ) -> Dict:
         url = urljoin(self.url, f"api/resource_templates/{id}")
         data = {}
@@ -1025,6 +1026,8 @@ class SaturnConnection:
             data["name"] = name
         if recipe:
             data["recipe"] = recipe
+        if in_gallery is not None:
+            data["in_gallery"] = in_gallery
         response = self.session.patch(url, json=data)
         return response.json()
 
@@ -1040,6 +1043,7 @@ class SaturnConnection:
         recipe: dict,
         thumbnail_image_url: str,
         weight: int,
+        in_gallery: bool = False,
     ) -> Dict:
         url = urljoin(self.url, "api/resource_templates")
         data = dict(
@@ -1049,6 +1053,7 @@ class SaturnConnection:
             recipe=recipe,
             thumbnail_image_url=thumbnail_image_url,
             weight=weight,
+            in_gallery=in_gallery,
         )
         response = self.session.post(url, json=data)
         return response.json()
