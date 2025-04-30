@@ -472,7 +472,7 @@ class SaturnConnection:
         return execute_request(self.session, self.settings.BASE_URL, path, method="PUT")
 
     def get_all_users(self, org_id: Optional[str] = None, details: bool = False) -> List[str]:
-        params = {"page_size": "1", "details": details}
+        params = {"page_size": "100", "details": details}
         if org_id:
             params["org_id"] = org_id
         route = make_path("/api/users", params)
