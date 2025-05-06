@@ -1014,7 +1014,7 @@ class SaturnConnection:
         description: str = None,
         name: str = None,
         recipe: dict = None,
-        in_gallery: Optional[bool] = False,
+        in_gallery: Optional[bool] = None,
     ) -> Dict:
         url = urljoin(self.url, f"api/resource_templates/{id}")
         data = {}
