@@ -428,7 +428,7 @@ class SaturnConnection:
 
     def delete_user(self, user_id: str) -> Dict:
         path = f"/api/users/{user_id}"
-        return execute_request(self.session, self.settings.BASE_URL, path, method="DELETE")
+        return execute_request(self.session, self.settings.BASE_URL, path, method="DELETE", parse_response=False)
 
     def update_user(
         self,
