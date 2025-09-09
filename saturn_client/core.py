@@ -14,7 +14,7 @@ import weakref
 
 import requests
 from typing import Any, Dict, Iterable, List, Optional, Union, Generator
-from urllib.parse import urljoin, urlencode
+from urllib.parse import urljoin, urlencode, urlparse, parse_qs
 
 from requests import Session
 
@@ -270,17 +270,58 @@ def paginate(
 ) -> Generator[List[Dict[str, Any]], None, None]:
     start = execute_request(session, base_url, path, method)
     yield start[field]
-    if "links" in start:
-        pagination_field = "links"
+
+    # Determine pagination style and get initial next reference
+    if "next_key" in start:
+        pagination_type = "next_key"
+        next_ref = start.get("next_key")
+    elif "links" in start:
+        pagination_type = "links"
+        next_ref = start["links"].get("next")
+    elif "pagination" in start:
+        pagination_type = "pagination"
+        next_ref = start["pagination"].get("next")
     else:
-        pagination_field = "pagination"
-    next_url = start[pagination_field].get("next")
-    while True:
-        if not next_url:
-            break
-        new_data = execute_request(session, base_url, next_url, method)
-        next_url = new_data[pagination_field].get("next")
+        return  # No pagination
+
+    # Continue fetching pages while there's a next reference
+    while next_ref:
+        # Build the path based on pagination type
+        if pagination_type == "next_key":
+            next_path = update_query_params(path, {"next_key": next_ref})
+        else:
+            next_path = next_ref  # For links/pagination, use the URL directly
+
+        new_data = execute_request(session, base_url, next_path, method)
         yield new_data[field]
+
+        # Get the next reference based on pagination type
+        if pagination_type == "next_key":
+            next_ref = new_data.get("next_key")
+        else:
+            next_ref = new_data[pagination_type].get("next")
+
+
+def update_query_params(url: str, params: Dict[str, Any]) -> str:
+    """Update or add query parameters to a URL.
+
+    Args:
+        url: The URL to update (can include existing query parameters)
+        params: Dictionary of parameters to add or update
+
+    Returns:
+        Updated URL with the new/updated query parameters
+    """
+    parsed = urlparse(url)
+    query_params = parse_qs(parsed.query)
+    # Convert from list values to single values
+    query_params = {
+        k: v[0] if isinstance(v, list) and len(v) == 1 else v for k, v in query_params.items()
+    }
+    # Update with new params
+    query_params.update(params)
+    # Rebuild the URL
+    return parsed.path + "?" + urlencode(query_params) if query_params else parsed.path
 
 
 def make_path(path: str, query_dict: dict) -> str:
@@ -355,6 +396,16 @@ class SaturnConnection:
         execute_request(
             self.session, self.settings.BASE_URL, path, method="DELETE", parse_response=False
         )
+
+    def get_all_usage_limits(self, org_id: Optional[str] = None) -> List[UsageLimit]:
+        params = {}
+        if org_id:
+            params["org_id"] = org_id
+        route = make_path("/api/limits", params)
+        limits: List[Dict] = []
+        for page in paginate(self.session, self.settings.BASE_URL, "usage_limits", route, "GET"):
+            limits.extend(page)
+        return [UsageLimit(**limit) for limit in limits]
 
     def get_owners(
         self,
