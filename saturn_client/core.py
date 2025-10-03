@@ -576,7 +576,7 @@ class SaturnConnection:
         route = "api/shared_folders"
         if org_id:
             route += f"?org_id={org_id}"
-            
+
         folders = []
         for page in paginate(self.session, self.settings.BASE_URL, "shared_folders", route, "GET"):
             folders.extend(page)
@@ -662,7 +662,16 @@ class SaturnConnection:
             response = self.session.get(url)
             self._options = response.json()
         return self._options
-
+    
+    def get_all_workspaces(self, org_id: Optional[str] = None) -> List[Dict]:
+        route = "api/workspaces"
+        if org_id:
+            route += f"?org_id={org_id}"
+        workspaces = []
+        for page in paginate(self.session, self.settings.BASE_URL, "workspaces", route, "GET"):
+            workspaces.extend(page)
+        return workspaces
+    
     def list_resources(
         self,
         resource_type: Optional[str] = None,
