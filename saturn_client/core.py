@@ -571,7 +571,17 @@ class SaturnConnection:
         url = urljoin(self.url, f"api/shared_folders/{shared_folder_id}")
         response = self.session.get(url)
         return response.json()
-
+    
+    def get_all_shared_folders(self, org_id: Optional[str] = None) -> List[Dict]:
+        route = "api/shared_folders"
+        if org_id:
+            route += f"?org_id={org_id}"
+            
+        folders = []
+        for page in paginate(self.session, self.settings.BASE_URL, "shared_folders", route, "GET"):
+            folders.extend(page)
+        return folders
+    
     def set_preferred_org(self, user_id: str, org_id: str) -> Dict:
         url = urljoin(self.url, "api/user/preferences")
         response = self.session.post(url, json={"user_id": user_id, "default_org_id": org_id})
