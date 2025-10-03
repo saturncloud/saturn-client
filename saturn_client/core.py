@@ -571,7 +571,7 @@ class SaturnConnection:
         url = urljoin(self.url, f"api/shared_folders/{shared_folder_id}")
         response = self.session.get(url)
         return response.json()
-    
+
     def get_all_shared_folders(self, org_id: Optional[str] = None) -> List[Dict]:
         route = "api/shared_folders"
         if org_id:
@@ -581,7 +581,7 @@ class SaturnConnection:
         for page in paginate(self.session, self.settings.BASE_URL, "shared_folders", route, "GET"):
             folders.extend(page)
         return folders
-    
+
     def set_preferred_org(self, user_id: str, org_id: str) -> Dict:
         url = urljoin(self.url, "api/user/preferences")
         response = self.session.post(url, json={"user_id": user_id, "default_org_id": org_id})
@@ -596,6 +596,21 @@ class SaturnConnection:
             for resource in resources:
                 if resource["state"]["status"] != "stopped":
                     self.stop(resource["type"], resource["state"]["id"])
+
+    def delete_all_resources_in_org(self, org_id: str, dryrun=True) -> None:
+        owner_names = [
+            x["name"] for x in self.get_owners(org_id=org_id, all_users=True, all_groups=True)
+        ]
+        for owner_name in owner_names:
+            resources = self.list_resources(owner_name=owner_name)
+            for resource in resources:
+                print(
+                    f'deleting {resource["type"]} {resource["state"]["id"]} {resource["spec"]["name"]}, {resource["spec"]["owner"]}'
+                )
+                if dryrun:
+                    print("DRYRUN")
+                elif not dryrun:
+                    self.delete(resource["type"], resource["state"]["id"])
 
     def get_size(self, size: str) -> Dict:
         sizes = self.list_options(ServerOptionTypes.SIZES)
@@ -662,7 +677,7 @@ class SaturnConnection:
             response = self.session.get(url)
             self._options = response.json()
         return self._options
-    
+
     def get_all_workspaces(self, org_id: Optional[str] = None) -> List[Dict]:
         route = "api/workspaces"
         if org_id:
@@ -671,7 +686,7 @@ class SaturnConnection:
         for page in paginate(self.session, self.settings.BASE_URL, "workspaces", route, "GET"):
             workspaces.extend(page)
         return workspaces
-    
+
     def list_resources(
         self,
         resource_type: Optional[str] = None,
@@ -912,7 +927,7 @@ class SaturnConnection:
         response = self.session.post(url, json=data)
         return response.json()
 
-    def delete(self, resource_type: str, resource_id: str, debug_mode: bool = False):
+    def delete(self, resource_type: str, resource_id: str):
         url_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{url_name}/{resource_id}")
         response = self.session.delete(url)
