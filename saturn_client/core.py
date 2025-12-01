@@ -579,8 +579,9 @@ class SaturnConnection:
     def get_all_shared_folders(self, org_id: Optional[str] = None) -> List[Dict]:
         route = "api/shared_folders"
         if org_id:
-            route += f"?org_id={org_id}"
-
+            route += f"?org_id={org_id}&all_users=true&all_groups=true"
+        else:
+            route += f"?all_users=true&all_groups=true"
         folders = []
         for page in paginate(self.session, self.settings.BASE_URL, "shared_folders", route, "GET"):
             folders.extend(page)
