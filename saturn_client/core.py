@@ -544,7 +544,6 @@ class SaturnConnection:
                 "access": access,
                 "access_mode": access_mode,
                 "is_external": is_external,
-                "disk_space": "100Gi",
             },
         )
         return response.json()
@@ -617,9 +616,7 @@ class SaturnConnection:
 
     @property
     def orgs(self) -> List[Dict[str, Any]]:
-        url = urljoin(self.url, "api/orgs")
-        response = self.session.get(url)
-        return response.json()["orgs"]
+        return self._list_all("orgs", "api/orgs")
 
     @property
     def primary_org(self) -> Dict[str, Any]:
