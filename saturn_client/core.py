@@ -9,7 +9,7 @@ from json import JSONDecodeError
 import logging
 import datetime as dt
 from dataclasses import dataclass, asdict
-from functools import reduce
+from functools import cached_property, reduce
 import weakref
 
 import requests
@@ -614,11 +614,11 @@ class SaturnConnection:
             results = sorted(results, key=lambda x: (x["gpu"], x["cores"]))
         return results
 
-    @property
+    @cached_property
     def orgs(self) -> List[Dict[str, Any]]:
         return self._list_all("orgs", "api/orgs")
 
-    @property
+    @cached_property
     def primary_org(self) -> Dict[str, Any]:
         orgs = self.orgs
         primary_org = None
@@ -629,7 +629,7 @@ class SaturnConnection:
             return primary_org
         raise ValueError("primary organization not found")
 
-    @property
+    @cached_property
     def current_user(self):
         url = urljoin(self.url, "api/user")
         response = self.session.get(url)
