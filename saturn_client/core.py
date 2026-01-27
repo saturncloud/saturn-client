@@ -332,9 +332,14 @@ def update_query_params(url: str, params: Dict[str, Any]) -> str:
     return parsed.path + "?" + urlencode(query_params) if query_params else parsed.path
 
 
-def make_path(path: str, query_dict: dict) -> str:
+def make_path(path: str, query_dict: Optional[Dict]) -> str:
     if query_dict:
-        return path + "?" + urlencode(query_dict)
+        if "?" in path:
+            if not path.endswith("&"):
+                path += "&"
+        else:
+            path = path + "?"
+        return path + urlencode(query_dict)
     return path
 
 
@@ -406,13 +411,7 @@ class SaturnConnection:
         )
 
     def get_all_usage_limits(self, org_id: Optional[str] = None) -> List[UsageLimit]:
-        params = {}
-        if org_id:
-            params["org_id"] = org_id
-        route = make_path("/api/limits", params)
-        limits: List[Dict] = []
-        for page in paginate(self.session, self.settings.BASE_URL, "usage_limits", route, "GET"):
-            limits.extend(page)
+        limits = self._list_all("usage_limits", "api/limits", org_id=org_id)
         return [UsageLimit(**limit) for limit in limits]
 
     def get_owners(
@@ -424,25 +423,14 @@ class SaturnConnection:
         groups_only: bool = False,
         details: bool = False,
     ) -> List:
-        path = f"/api/orgs/{org_id}/owners"
-        params = {
-            "all_users": str(all_users),
-            "all_groups": str(all_groups),
-            "users_only": str(users_only),
-            "groups_only": str(groups_only),
-            "details": str(details),
-        }
-        route = make_path(path, params)
-        owners = []
-        for page in paginate(
-            self.session,
-            self.settings.BASE_URL,
+        return self._list_all(
             "owners",
-            route,
-            "GET",
-        ):
-            owners.extend(page)
-        return owners
+            f"/api/orgs/{org_id}/owners",
+            all_users=all_users,
+            all_groups=all_groups,
+            identity_type="user" if users_only else "group" if groups_only else None,
+            details=details,
+        )
 
     def get_org_usage(
         self, org_id: str, start: Union[dt.datetime, str], end: Union[dt.datetime, str]
@@ -535,20 +523,7 @@ class SaturnConnection:
         return execute_request(self.session, self.settings.BASE_URL, path, method="PUT")
 
     def get_all_users(self, org_id: Optional[str] = None, details: bool = False) -> List[str]:
-        params = {"page_size": "100", "details": details}
-        if org_id:
-            params["org_id"] = org_id
-        route = make_path("/api/users", params)
-        users: List[Dict] = []
-        for page in paginate(
-            self.session,
-            self.settings.BASE_URL,
-            "users",
-            route,
-            "GET",
-        ):
-            users.extend(page)
-        return users
+        return self._list_all("users", "api/users", org_id=org_id, details=details, page_size="100")
 
     def create_shared_folder(
         self,
@@ -584,15 +559,8 @@ class SaturnConnection:
         response = self.session.get(url)
         return response.json()
 
-    def get_all_shared_folders(self, org_id: Optional[str] = None) -> List[Dict]:
-        route = "api/shared_folders"
-        if org_id:
-            route += f"?org_id={org_id}"
-
-        folders = []
-        for page in paginate(self.session, self.settings.BASE_URL, "shared_folders", route, "GET"):
-            folders.extend(page)
-        return folders
+    def get_all_shared_folders(self, org_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        return self._list_all("shared_folders", "api/shared_folders", org_id=org_id)
 
     def set_preferred_org(self, user_id: str, org_id: str) -> Dict:
         url = urljoin(self.url, "api/user/preferences")
@@ -691,13 +659,7 @@ class SaturnConnection:
         return self._options
 
     def get_all_workspaces(self, org_id: Optional[str] = None) -> List[Dict]:
-        route = "api/workspaces"
-        if org_id:
-            route += f"?org_id={org_id}"
-        workspaces = []
-        for page in paginate(self.session, self.settings.BASE_URL, "workspaces", route, "GET"):
-            workspaces.extend(page)
-        return workspaces
+        return self._list_all("workspaces", "api/workspaces", org_id=org_id)
 
     def list_resources(
         self,
@@ -707,20 +669,17 @@ class SaturnConnection:
         as_template: bool = False,
         status: Optional[Union[str, Iterable[str]]] = None,
     ) -> List[Dict[str, Any]]:
-        recipes = []
-        qparams = {}
+        params = {}
         if resource_type is not None:
             resource_type = ResourceType.lookup(resource_type)
-            qparams["type"] = resource_type
+            params["type"] = resource_type
         if owner_name:
-            qparams["owner_name"] = owner_name
+            params["owner_name"] = owner_name
         if resource_name:
-            qparams["name"] = resource_name
+            params["name"] = resource_name
         if as_template:
-            qparams["as_template"] = True
-        route = f"api/recipes?{urlencode(qparams)}"
-        for page in paginate(self.session, self.settings.BASE_URL, "recipes", route, "GET"):
-            recipes.extend(page)
+            params["as_template"] = True
+        recipes = self._list_all("recipes", "api/recipes", **params)
 
         if status:
             if isinstance(status, str):
@@ -861,10 +820,13 @@ class SaturnConnection:
         return result
 
     def _get_active_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
-        qparams = {"workload_type": resource_type, "workload_id": resource_id}
-        route = f"api/active/pod_summaries?{urlencode(qparams)}"
         try:
-            pod_summaries = self._list_all("pod_summaries", route)
+            pod_summaries = self._list_all(
+                "pod_summaries",
+                "api/active/pod_summaries",
+                workload_type=resource_type,
+                workload_id=resource_id,
+            )
             return self._format_pod_summaries(pod_summaries)
         except SaturnHTTPError as e:
             if (
@@ -1201,13 +1163,14 @@ class SaturnConnection:
         result = response.json()
         return result
 
-    def _list_all(self, field: str, path: str, method: str = "GET") -> List[Dict[str, Any]]:
+    def _list_all(self, field: str, path: str, method: str = "GET", **query: Optional[str]) -> List[Dict[str, Any]]:
         results: List[Dict[str, Any]] = []
-        for page in self._paginate(field=field, path=path, method=method):
+        for page in self._paginate(field=field, path=path, method=method, **query):
             results.extend(page)
         return results
 
-    def _paginate(self, field: str, path: str, method: str = "GET") -> Generator[List[Dict[str, Any]], None, None]:
+    def _paginate(self, field: str, path: str, method: str = "GET", **query: str) -> Iterable[List[Dict[str, Any]]]:
+        path = make_path(path, {k: v for k, v in query.items() if v is not None})
         return paginate(self.session, self.settings.BASE_URL, field=field, path=path, method=method)
 
 
