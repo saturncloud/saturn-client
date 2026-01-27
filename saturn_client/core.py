@@ -272,9 +272,15 @@ def paginate(
     yield start[field]
 
     # Determine pagination style and get initial next reference
+    #
+    # next_key is the only supported pagination key in latest release,
+    # all aother styles are included for backwards compatability.
     if "next_key" in start:
         pagination_type = "next_key"
         next_ref = start.get("next_key")
+    elif "next_last_key" in start:
+        pagination_type = "last_key"
+        next_ref = start.get("next_last_key")
     elif "links" in start:
         pagination_type = "links"
         next_ref = start["links"].get("next")
@@ -287,8 +293,8 @@ def paginate(
     # Continue fetching pages while there's a next reference
     while next_ref:
         # Build the path based on pagination type
-        if pagination_type == "next_key":
-            next_path = update_query_params(path, {"next_key": next_ref})
+        if pagination_type in ("next_key", "last_key"):
+            next_path = update_query_params(path, {pagination_type: next_ref})
         else:
             next_path = next_ref  # For links/pagination, use the URL directly
 
@@ -296,8 +302,8 @@ def paginate(
         yield new_data[field]
 
         # Get the next reference based on pagination type
-        if pagination_type == "next_key":
-            next_ref = new_data.get("next_key")
+        if pagination_type in ("next_key", "last_key"):
+            next_ref = new_data.get(pagination_type)
         else:
             next_ref = new_data[pagination_type].get("next")
 
@@ -699,7 +705,6 @@ class SaturnConnection:
         as_template: bool = False,
         status: Optional[Union[str, Iterable[str]]] = None,
     ) -> List[Dict[str, Any]]:
-        next_last_key = None
         recipes = []
         qparams = {}
         if resource_type is not None:
@@ -711,16 +716,9 @@ class SaturnConnection:
             qparams["name"] = resource_name
         if as_template:
             qparams["as_template"] = True
-        base_url = urljoin(self.url, "api/recipes")
-        while True:
-            url = base_url + "?" + urlencode(qparams)
-            response = self.session.get(url)
-            data = response.json()
-            recipes.extend(data["recipes"])
-            next_last_key = data.get("next_last_key", None)
-            if next_last_key is None:
-                break
-            qparams["last_key"] = next_last_key
+        route = f"api/recipes?{urlencode(qparams)}"
+        for page in paginate(self.session, self.settings.BASE_URL, "recipes", route, "GET"):
+            recipes.extend(page)
 
         if status:
             if isinstance(status, str):
