@@ -733,7 +733,7 @@ class SaturnConnection:
 
         if not source or source == DataSource.LIVE:
             # Search for latest live pod
-            pods = self._get_live_pods_legacy(resource_type, resource_id)
+            pods = self._get_active_pods(resource_type, resource_id)
             if len(pods) > 0:
                 pod_name = pods[0]["pod_name"]
                 return self.get_logs(
@@ -783,7 +783,7 @@ class SaturnConnection:
         if source is None:
             pods = self._get_all_pods(resource_type, resource_id)
         elif source == DataSource.LIVE:
-            pods = self._get_live_pods_legacy(resource_type, resource_id)
+            pods = self._get_active_pods(resource_type, resource_id)
         else:
             pods = self._get_historical_pods(resource_type, resource_id)
 
