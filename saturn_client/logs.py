@@ -44,9 +44,7 @@ def is_live(pod_summary: Optional[Dict[str, Any]]) -> bool:
     """
     if not pod_summary:
         return False
-    if has_logs(pod_summary):
-        return True
-    return pod_summary["status"] not in {"completed", "stopping", "stopped"}
+    return pod_summary["status"] not in {"stopping", "stopped"}
 
 
 def has_logs(pod_summary: Dict[str, Any]) -> bool:

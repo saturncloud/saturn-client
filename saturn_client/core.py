@@ -18,7 +18,7 @@ from urllib.parse import urljoin, urlencode, urlparse, parse_qs
 
 from requests import Session
 
-from saturn_client.logs import format_historical_logs, format_logs, is_live
+from saturn_client.logs import format_container_logs, format_historical_logs, format_logs, has_logs, is_live, _section_header
 
 from .settings import Settings
 
@@ -725,16 +725,31 @@ class SaturnConnection:
         if pod_name:
             if not source or source == DataSource.LIVE:
                 pod_summary = self._get_pod_runtime_summary(pod_name, resource_id=resource_id)
-                if is_live(pod_summary):
+                if is_live(pod_summary) and has_logs(pod_summary):
                     return format_logs(pod_summary, all_containers=all_containers)
+                else:
+                    if all_containers:
+                        for container in pod_summary["init_container_summaries"] + pod_summary["container_summaries"]:
+                            container_name = container["name"]
+                            previous = container.get("previous")
+                            if previous:
+                                previous["logs"] = self._get_live_pod_logs(pod_name, container_name=container_name, previous=True)
+                            container["logs"] = self._get_live_pod_logs(pod_name, container_name=container_name)
+                        return format_logs(pod_summary, all_containers=True)
+                    else:
+                        container = pod_summary["container_summaries"][0]
+                        container["logs"] = self._get_live_pod_logs(pod_name, container_name=container["name"])
+                        return _section_header(f"Pod: {pod_name}", format_container_logs(container))
+
             if not source or source == DataSource.HISTORICAL:
                 return self._get_historical_pod_logs(resource_type, resource_id, pod_name)
             return ""
 
         if not source or source == DataSource.LIVE:
             # Search for latest live pod
-            pods = self._get_active_pods(resource_type, resource_id)
+            pods = self._get_live_pods(resource_type, resource_id)
             if len(pods) > 0:
+                pods.sort(key=lambda p: p["start_time"], reverse=True)
                 pod_name = pods[0]["pod_name"]
                 return self.get_logs(
                     resource_type,
@@ -754,17 +769,32 @@ class SaturnConnection:
         return ""
 
     def _get_live_pod_logs(
-        self, pod_name: str, resource_id: Optional[str] = None, all_containers: bool = False
+        self,
+        pod_name: str,
+        container_name: Optional[str] = None,
+        cluster: Optional[str] = None,
+        previous: bool = False,
+        page_size: int = 1000,
     ) -> str:
-        pod_summary = self._get_pod_runtime_summary(pod_name, resource_id=resource_id)
-        return format_logs(pod_summary, all_containers=all_containers)
+        params = {"page_size": page_size}
+        if container_name:
+            params["container_name"] = container_name
+        if cluster:
+            params["cluster"] = cluster
+        if previous:
+            params["previous"] = previous
+        url = urljoin(self.url, make_path(f"api/active/pods/{pod_name}/logs", params))
+        response = self.session.get(url)
+        return response.json()["logs"]
 
     def _get_historical_pod_logs(self, resource_type: str, resource_id: str, pod_name: str) -> str:
         api_name = ResourceType.get_url_name(resource_type)
         url = urljoin(self.url, f"api/{api_name}/{resource_id}/logs?pod_name={pod_name}")
         response = self.session.get(url)
-        result = response.json()
-        return format_historical_logs(pod_name, result["logs"])
+        logs = response.json()["logs"]
+        if isinstance(logs, list):
+            logs = "\n".join(l["content"] for l in logs)
+        return format_historical_logs(pod_name, logs)
 
     def get_pods(
         self,
@@ -783,7 +813,7 @@ class SaturnConnection:
         if source is None:
             pods = self._get_all_pods(resource_type, resource_id)
         elif source == DataSource.LIVE:
-            pods = self._get_active_pods(resource_type, resource_id)
+            pods = self._get_live_pods(resource_type, resource_id)
         else:
             pods = self._get_historical_pods(resource_type, resource_id)
 
@@ -801,7 +831,7 @@ class SaturnConnection:
         resource_id: str,
     ) -> List[Dict[str, Any]]:
         historical_pods = self._get_historical_pods(resource_type, resource_id)
-        live_pods = self._get_active_pods(resource_type, resource_id)
+        live_pods = self._get_live_pods(resource_type, resource_id)
         live_pod_names = set(x["pod_name"] for x in live_pods)
         historical_pods = [x for x in historical_pods if x["pod_name"] not in live_pod_names]
         return live_pods + historical_pods
@@ -816,28 +846,22 @@ class SaturnConnection:
         result = sorted(result, key=lambda x: (x["start_time"] or "", x["pod_name"]), reverse=True)
         return result
 
-    def _get_active_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
-        try:
-            pod_summaries = self._list_all(
-                "pod_summaries",
-                "api/active/pod_summaries",
-                workload_type=resource_type,
-                workload_id=resource_id,
-            )
-            return self._format_pod_summaries(pod_summaries)
-        except SaturnHTTPError as e:
-            if (
-                e.status_code == 404
-                and not e.saturn_version or e.saturn_version < "2025.10.01"
-                and e.args and e.args[0] == {"message": "Not found"}
-            ):
-                # Installation does not have active API yet
-                return self._get_live_pods_legacy(resource_type, resource_id)
-            raise e
+    def _get_live_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
+        if not self._check_version(min="2025.10.01"):
+            # Installation does not have active API yet
+            return self._get_live_pods_legacy(resource_type, resource_id)
+
+        pod_summaries = self._list_all(
+            "pod_summaries",
+            "api/active/pods",
+            workload_type=resource_type,
+            workload_id=resource_id,
+        )
+        return self._format_pod_summaries(pod_summaries)
 
     def _get_live_pods_legacy(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
         api_name = ResourceType.get_url_name(resource_type)
-        url = urljoin(self.url, f"api/{api_name}/{resource_id}/runtimesummary")
+        url = urljoin(self.url, f"api/{api_name}/{resource_id}/runtimesummary?details=true")
         response = self.session.get(url)
         result = response.json()
         if "job_summaries" in result:
@@ -873,6 +897,28 @@ class SaturnConnection:
         return active_pods
 
     def _get_pod_runtime_summary(
+        self, pod_name: str, resource_id: Optional[str] = None, resource_name: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        if not self._check_version(min="2025.10.01"):
+            # Installation does not have active API yet
+            return self._get_pod_runtime_summary_legacy(pod_name, resource_id)
+
+        try:
+            url = urljoin(self.url, f"api/active/pods/{pod_name}")
+            response = self.session.get(url)
+        except SaturnHTTPError as e:
+            if e.status_code == 404:
+                return None
+            raise e
+
+        pod_summary = response.json()
+        labels: Dict[str, str] = pod_summary.get("labels", {})
+        if resource_id and labels.get("saturncloud.io/resource-id") != resource_id:
+            # Validate the pod is for the correct resource
+            raise ValueError(f"Unable to find pod '{pod_name}' matching this resource")
+        return pod_summary
+
+    def _get_pod_runtime_summary_legacy(
         self, pod_name: str, resource_id: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         url = urljoin(self.url, f"api/pod/namespace/main-namespace/name/{pod_name}/runtimesummary")
@@ -1169,6 +1215,13 @@ class SaturnConnection:
     def _paginate(self, field: str, path: str, method: str = "GET", **query: str) -> Iterable[List[Dict[str, Any]]]:
         path = make_path(path, {k: v for k, v in query.items() if v is not None})
         return paginate(self.session, self.settings.BASE_URL, field=field, path=path, method=method)
+
+    def _check_version(self, *, min: Optional[str] = None, max: Optional[str] = None) -> bool:
+        if min and self._saturn_version < min:
+            return False
+        if max and self._saturn_version > max:
+            return False
+        return True
 
 
 class SaturnSession(requests.Session):
