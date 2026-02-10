@@ -847,7 +847,7 @@ class SaturnConnection:
         return result
 
     def _get_live_pods(self, resource_type: str, resource_id: str) -> List[Dict[str, Any]]:
-        if not self._check_version(min="2025.10.01"):
+        if not self._check_version(min="2026.02.01"):
             # Installation does not have active API yet
             return self._get_live_pods_legacy(resource_type, resource_id)
 
@@ -899,7 +899,7 @@ class SaturnConnection:
     def _get_pod_runtime_summary(
         self, pod_name: str, resource_id: Optional[str] = None, resource_name: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
-        if not self._check_version(min="2025.10.01"):
+        if not self._check_version(min="2026.02.01"):
             # Installation does not have active API yet
             return self._get_pod_runtime_summary_legacy(pod_name, resource_id)
 
