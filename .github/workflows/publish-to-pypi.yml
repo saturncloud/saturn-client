@@ -3,15 +3,18 @@ on:
   push:
     tags:
       - '*'
+permissions:
+  contents: read
+
 jobs:
   build-and-publish:
     name: Build and publish saturn-client to PyPI
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
     - name: Set up Python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@0f07f7f756721ebd886c2462646a35f78a8bc4de # v1.2.4
       with:
         python-version: 3.12
     - name: Install build dependencies
@@ -30,7 +33,7 @@ jobs:
         bdist_wheel
     - name: Publish distribution to PyPI
       if: startsWith(github.event.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@v1.3.0
+      uses: pypa/gh-action-pypi-publish@00ef3b81828a3fa69f3434842ce50ec3981351b0 # v1.3.0
       with:
         # Password is set in GitHub UI to an API secret for pypi
         user: __token__
