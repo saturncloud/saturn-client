@@ -94,10 +94,13 @@ class ServerOptionTypes:
     AUTO_SHUTOFF = "auto_shutoff"
     DISK_SPACE = "disk_space"
     SIZES = "sizes"
+    # Recommended instance type configurations: named, ordered lists of sizes
+    # on one cluster that a recipe names with ``instance_type_config``.
+    INSTANCE_TYPE_CONFIGS = "instance_type_configs"
 
     @classmethod
     def values(cls) -> List[str]:
-        return [cls.AUTO_SHUTOFF, cls.DISK_SPACE, cls.SIZES]
+        return [cls.AUTO_SHUTOFF, cls.DISK_SPACE, cls.SIZES, cls.INSTANCE_TYPE_CONFIGS]
 
 
 class ResourceStatus:
@@ -596,6 +599,15 @@ class SaturnConnection:
         pruned = [x for x in sizes if x["name"] == size]
         return pruned[0]
 
+    def get_instance_type_config(self, name: str) -> Dict:
+        """A recommended instance type configuration by name: its cluster and
+        its ordered member sizes (``sizes``)."""
+        configs = self.list_options(ServerOptionTypes.INSTANCE_TYPE_CONFIGS)
+        pruned = [x for x in configs if x["name"] == name]
+        if not pruned:
+            raise ValueError(f"no recommended instance type configuration is named {name!r}")
+        return pruned[0]
+
     def list_options(self, option_type: str, glob: Optional[str] = None) -> List:
         if option_type not in ServerOptionTypes.values():
             raise ValueError(
@@ -603,8 +615,12 @@ class SaturnConnection:
             )
         url = urljoin(self.url, "api/info/servers")
         response = self.session.get(url)
-        results = response.json()[option_type]
-        if option_type != ServerOptionTypes.SIZES:
+        # instance_type_configs is absent on servers older than the field.
+        results = response.json().get(option_type, [])
+        if option_type == ServerOptionTypes.INSTANCE_TYPE_CONFIGS:
+            if glob:
+                results = [x for x in results if fnmatch(x["name"], glob)]
+        elif option_type != ServerOptionTypes.SIZES:
             if glob:
                 results = [x for x in results if fnmatch(x, glob)]
         else:

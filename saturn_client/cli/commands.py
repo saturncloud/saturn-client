@@ -563,10 +563,21 @@ def split_cli(
     click.echo(f"reading" f" {recipe_template}")
     recipe = deserialize(recipe_template)
     if instance_type is None:
-        instance_type = recipe["spec"]["instance_type"]
-        click.echo(f"using {instance_type} instance from recipe")
+        config_name = recipe["spec"].get("instance_type_config")
+        if config_name:
+            # A recommended configuration: its sizes share a GPU count, so the
+            # first one decides nprocs.
+            instance_type = SaturnConnection().get_instance_type_config(config_name)["sizes"][0]
+            click.echo(f"using recommended configuration {config_name} from recipe")
+        else:
+            instance_type = recipe["spec"]["instance_type"]
+            if isinstance(instance_type, list):
+                # An ordered list: every type has the same GPU count.
+                instance_type = instance_type[0]
+            click.echo(f"using {instance_type} instance from recipe")
     else:
         click.echo(f"using {instance_type} instance")
+        recipe["spec"].pop("instance_type_config", None)
         recipe["spec"]["instance_type"] = instance_type
 
     if "nprocs" not in batch_info:
