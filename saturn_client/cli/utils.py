@@ -74,7 +74,11 @@ def print_resource_table(
         name = spec["name"]
         resource_type = resource["type"]
         status = state.get("status")
-        instance_type = spec["instance_type"]
+        # A recipe names a single type, an ordered list of types, or a
+        # recommended configuration (instance_type_config) instead.
+        instance_type = spec.get("instance_type") or spec.get("instance_type_config")
+        if isinstance(instance_type, list):
+            instance_type = ",".join(instance_type)
         scale = spec.get("scale", 1)
         data.append([owner, name, resource_type, status, instance_type, scale, id])
     tabulate(data, headers)
